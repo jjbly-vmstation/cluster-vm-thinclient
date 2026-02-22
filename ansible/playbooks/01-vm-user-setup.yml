@@ -1,0 +1,72 @@
+---
+# Create dedicated VM user on RHEL (homelab)
+#
+# Creates: vmadmin with libvirt, kvm groups and dirs:
+#   ~/iso, ~/disks, ~/terraform, ~/backups
+#
+# Usage:
+#   ansible-playbook -i inventory/hosts.yml playbooks/01-vm-user-setup.yml
+
+- name: "Create VM admin user and directories on RHEL"
+  hosts: rhel_vm_hosts
+  become: true
+  gather_facts: true
+  vars:
+    vm_admin_user: "{{ vm_admin_user | default('vmadmin') }}"
+    vm_admin_shell: "{{ vm_admin_shell | default('/bin/bash') }}"
+    vm_admin_groups: "{{ vm_admin_groups | default(['libvirt', 'kvm']) }}"
+    vm_admin_dirs: "{{ vm_admin_dirs | default(['iso', 'disks', 'terraform', 'backups']) }}"
+  tasks:
+    - name: "Ensure groups exist"
+      ansible.builtin.group:
+        name: "{{ item }}"
+        state: present
+      loop: "{{ vm_admin_groups }}"
+
+    - name: "Create VM admin user"
+      ansible.builtin.user:
+        name: "{{ vm_admin_user }}"
+        shell: "{{ vm_admin_shell }}"
+        create_home: true
+        groups: "{{ vm_admin_groups | join(',') }}"
+        append: true
+        state: present
+
+    - name: "Create VM admin directories"
+      ansible.builtin.file:
+        path: "/home/{{ vm_admin_user }}/{{ item }}"
+        state: directory
+        owner: "{{ vm_admin_user }}"
+        group: "{{ vm_admin_user }}"
+        mode: "0755"
+      loop: "{{ vm_admin_dirs }}"
+
+    - name: "Ensure libvirt/kvm packages installed"
+      ansible.builtin.package:
+        name:
+          - libvirt
+          - qemu-kvm
+          - virt-install
+          - virt-manager
+        state: present
+      when: ansible_facts['os_family'] == 'RedHat'
+
+    - name: "Ensure libvirt default URI allows vmadmin (policykit)"
+      ansible.builtin.lineinfile:
+        path: "/etc/libvirt/libvirtd.conf"
+        regexp: '^#?unix_sock_group\s*='
+        line: 'unix_sock_group = "libvirt"'
+      notify: Restart libvirt
+      when: ansible_facts['os_family'] == 'RedHat'
+
+    - name: "Display result"
+      ansible.builtin.debug:
+        msg: |
+          VM admin user '{{ vm_admin_user }}' created.
+          Dirs: /home/{{ vm_admin_user }}/{{ vm_admin_dirs | join(', /home/' ~ vm_admin_user ~ '/') }}
+  handlers:
+    - name: Restart libvirt
+      ansible.builtin.service:
+        name: libvirtd
+        state: restarted
+      when: ansible_facts['os_family'] == 'RedHat'

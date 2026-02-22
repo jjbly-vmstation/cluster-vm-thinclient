@@ -1,0 +1,63 @@
+---
+# Windows VM hardening - RDP, firewall, updates, folder redirection
+# Requires: WinRM enabled on Windows VM, ansible.windows collection
+#
+# Prerequisite on Windows (run as Admin):
+#   Enable-PSRemoting -Force
+#   Set-Item WSMan:\localhost\Client\TrustedHosts -Value "homelab,192.168.4.62" -Force
+#
+# Usage:
+#   ansible-galaxy collection install ansible.windows
+#   ansible-playbook -i inventory/hosts.yml playbooks/04-windows-hardening.yml
+#
+# Inventory: add windows_vm_hosts with ansible_connection=winrm
+
+- name: "Windows VM hardening"
+  hosts: windows_vm_hosts
+  gather_facts: true
+  vars:
+    rdp_enabled: true
+    windows_updates: true
+    folder_redirect_drive: "D:"
+  tasks:
+    - name: "Enable Remote Desktop with NLA"
+      ansible.windows.win_regedit:
+        path: HKLM:\System\CurrentControlSet\Control\Terminal Server
+        name: fDenyTSConnections
+        data: 0
+        type: dword
+      when: rdp_enabled | default(true)
+
+    - name: "Require NLA for RDP"
+      ansible.windows.win_regedit:
+        path: HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp
+        name: UserAuthentication
+        data: 1
+        type: dword
+      when: rdp_enabled | default(true)
+
+    - name: "Allow RDP in Windows Firewall"
+      ansible.windows.win_firewall_rule:
+        name: "Remote Desktop - User Mode (TCP-In)"
+        localport: 3389
+        action: allow
+        direction: in
+        protocol: tcp
+        state: present
+      when: rdp_enabled | default(true)
+
+    - name: "Ensure Windows Updates (optional)"
+      ansible.windows.win_updates:
+        category_names:
+          - SecurityUpdates
+          - CriticalUpdates
+        state: installed
+      when: windows_updates | default(false)
+      register: win_updates
+      failed_when: false
+
+    - name: "Create D:\\Users folder structure for redirect"
+      ansible.windows.win_file:
+        path: "{{ folder_redirect_drive }}\\Users\\{{ windows_rdp_user | default('dad') }}"
+        state: directory
+      when: folder_redirect_drive is defined and folder_redirect_drive | length > 0

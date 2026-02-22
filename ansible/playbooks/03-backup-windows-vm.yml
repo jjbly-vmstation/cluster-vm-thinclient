@@ -1,0 +1,82 @@
+---
+# Backup Windows VM qcow2 disks
+# Snapshots both disks and copies to ~/backups with timestamp
+#
+# Run as root or vmadmin (with libvirt access) on homelab.
+#
+# Usage:
+#   ansible-playbook -i inventory/hosts.yml playbooks/03-backup-windows-vm.yml
+#   ansible-playbook -i inventory/hosts.yml playbooks/03-backup-windows-vm.yml \
+#     -e "vm_name=windows-thinclient" -e "backup_retention_days=14"
+
+- name: "Backup Windows VM qcow2 disks"
+  hosts: rhel_vm_hosts
+  become: true
+  gather_facts: true
+  vars:
+    vm_name: "{{ windows_vm_name | default('windows-thinclient') }}"
+    vm_admin_user: "{{ vm_admin_user | default('vmadmin') }}"
+    disks_dir: "{{ disks_dir | default('/var/lib/libvirt/images') }}"
+    backup_dest: "/home/{{ vm_admin_user }}/backups"
+    backup_retention_days: "{{ backup_retention_days | default(7) }}"
+    os_disk: "windows-os.qcow2"
+    data_disk: "windows-data.qcow2"
+  tasks:
+    - name: "Set backup timestamp"
+      ansible.builtin.set_fact:
+        backup_timestamp: "{{ ansible_date_time.iso8601_basic_short }}"
+
+    - name: "Ensure backup directory exists"
+      ansible.builtin.file:
+        path: "{{ backup_dest }}/{{ backup_timestamp }}"
+        state: directory
+        owner: "{{ vm_admin_user }}"
+        group: "{{ vm_admin_user }}"
+        mode: "0755"
+
+    - name: "Check if VM is running"
+      ansible.builtin.command: virsh domstate "{{ vm_name }}"
+      register: vm_state
+      changed_when: false
+      failed_when: false
+
+    - name: "Save VM state for consistent backup (optional)"
+      ansible.builtin.command: virsh managedsave "{{ vm_name }}"
+      when: "'running' in vm_state.stdout"
+
+    - name: "Stat OS disk"
+      ansible.builtin.stat:
+        path: "{{ disks_dir }}/{{ os_disk }}"
+      register: os_disk_stat
+
+    - name: "Copy OS disk to backup"
+      ansible.builtin.copy:
+        src: "{{ disks_dir }}/{{ os_disk }}"
+        dest: "{{ backup_dest }}/{{ backup_timestamp }}/{{ os_disk }}"
+        remote_src: true
+        mode: "0644"
+      when: os_disk_stat.stat.exists
+
+    - name: "Stat data disk"
+      ansible.builtin.stat:
+        path: "{{ disks_dir }}/{{ data_disk }}"
+      register: data_disk_stat
+
+    - name: "Copy data disk to backup"
+      ansible.builtin.copy:
+        src: "{{ disks_dir }}/{{ data_disk }}"
+        dest: "{{ backup_dest }}/{{ backup_timestamp }}/{{ data_disk }}"
+        remote_src: true
+        mode: "0644"
+      when: data_disk_stat.stat.exists
+
+    - name: "Remove old backups"
+      ansible.builtin.shell: |
+        find "{{ backup_dest }}" -maxdepth 1 -type d -mtime +{{ backup_retention_days }} -exec rm -rf {} \;
+      args:
+        warn: false
+      changed_when: false
+
+    - name: "Display backup location"
+      ansible.builtin.debug:
+        msg: "Backup saved to {{ backup_dest }}/{{ backup_timestamp }}"

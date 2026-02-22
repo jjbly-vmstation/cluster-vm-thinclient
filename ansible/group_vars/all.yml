@@ -1,0 +1,33 @@
+---
+# Variables for cluster-vm-thinclient
+
+# VM user on RHEL
+vm_admin_user: vmadmin
+vm_admin_shell: /bin/bash
+vm_admin_groups:
+  - libvirt
+  - kvm
+
+# Directory structure (relative to vm_admin home)
+vm_admin_dirs:
+  - iso
+  - disks
+  - terraform
+  - backups
+
+# Windows ISO (override via -e windows_iso_url=...)
+windows_iso_url: ""  # e.g. https://example.com/Win11_23H2.iso
+windows_iso_filename: "Win11_23H2_English_x64.iso"
+windows_iso_dest_dir: "/home/{{ vm_admin_user }}/iso"
+
+# Disk paths - default libvirt pool uses /var/lib/libvirt/images
+# Or use custom pool in ~/disks
+disks_dir: "/var/lib/libvirt/images"  # when pool=default
+# disks_dir: "/home/{{ vm_admin_user }}/disks"  # when using custom pool in ~/disks
+
+windows_os_disk: "windows-os.qcow2"
+windows_data_disk: "windows-data.qcow2"
+
+# Backup settings
+backup_dest_dir: "/home/{{ vm_admin_user }}/backups"
+backup_retention_days: 7

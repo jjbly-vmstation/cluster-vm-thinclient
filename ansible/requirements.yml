@@ -1,0 +1,5 @@
+---
+# Ansible collections for cluster-vm-thinclient
+collections:
+  - name: ansible.windows
+    version: ">=2.0.0"
