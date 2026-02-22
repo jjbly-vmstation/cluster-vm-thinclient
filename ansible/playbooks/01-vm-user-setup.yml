@@ -11,11 +11,7 @@
   hosts: rhel_vm_hosts
   become: true
   gather_facts: true
-  vars:
-    vm_admin_user: "{{ vm_admin_user | default('vmadmin') }}"
-    vm_admin_shell: "{{ vm_admin_shell | default('/bin/bash') }}"
-    vm_admin_groups: "{{ vm_admin_groups | default(['libvirt', 'kvm']) }}"
-    vm_admin_dirs: "{{ vm_admin_dirs | default(['iso', 'disks', 'terraform', 'backups']) }}"
+  # vars from group_vars/all.yml (vm_admin_user, vm_admin_groups, vm_admin_dirs)
   tasks:
     - name: "Ensure groups exist"
       ansible.builtin.group:
