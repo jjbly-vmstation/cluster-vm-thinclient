@@ -1,3 +1,57 @@
-terraform.tfvars
+# Terraform
+# Local .terraform directories
+**/.terraform/*
+
+# .tfstate files and backups (contain state and potentially secrets)
+*.tfstate
+*.tfstate.*.backup
+
+# .tfvars files (often contain sensitive variable values or environment-specific data)
+# Consider using a naming convention for sensitive files you want to ignore, e.g., *.secrets.tfvars
 *.tfvars
-!*.tfvars.example
+# Exception for a specific tfvars file you might want to commit, if applicable
+# !example.tfvars
+
+# terraform.lock.hcl file (lock file for consistent provider versions across environments)
+# It is generally recommended to commit this file to version control, but it is ignored if uncommented below.
+# .terraform.lock.hcl
+
+# Crash log files
+crash.log
+
+# Ignore override files as they are usually used to override resources locally
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# terraform plan files
+# tfplan*
+
+# Ancillary files
+.terraform/
+.terraform.d/
+
+# Ansible
+# Environment-specific configuration files (e.g., development/staging/production inventories)
+# Inventory files with sensitive data should be ignored or managed with tools like Ansible Vault.
+# hosts
+# inventory
+# group_vars/
+# host_vars/
+
+# Python virtual environment (if using a virtualenv for Ansible dependencies)
+# .venv/
+# env/
+
+# Log files and temporary files
+*.log
+*.retry
+*~
+
+# IDE-specific files (e.g., VS Code, PyCharm)
+.vscode/
+.idea/
+
+# Dotfiles specific to your local machine that should not be committed
+.local.*
