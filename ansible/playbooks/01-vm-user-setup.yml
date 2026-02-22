@@ -53,7 +53,6 @@
           - libvirt
           - qemu-kvm
           - virt-install
-          - virt-manager
         state: present
       when: ansible_facts['os_family'] == 'RedHat'
 
