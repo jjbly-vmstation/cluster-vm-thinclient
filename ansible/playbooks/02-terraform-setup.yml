@@ -1,0 +1,67 @@
+---
+- name: Setup Windows VM Thin-Client with Terraform on homelab
+  hosts: homelab
+  become: true
+  vars:
+    terraform_version: "1.5.0"
+    terraform_bin: "/usr/local/bin/terraform"
+    terraform_dir: "/home/jashandeepjustinbains/vmstation-org/cluster-vm-thinclient/terraform"
+    terraform_src_dir: "/opt/vmstation-org/cluster-vm-thinclient/terraform"  # Adjust if needed
+
+  tasks:
+    - name: Ensure required packages are installed
+      package:
+        name:
+          - libvirt
+          - qemu-kvm
+          - unzip
+          - wget
+        state: present
+
+    - name: Download Terraform binary if not present
+      get_url:
+        url: "https://releases.hashicorp.com/terraform/{{ terraform_version }}/terraform_{{ terraform_version }}_linux_amd64.zip"
+        dest: "/tmp/terraform.zip"
+      when: not ansible_facts['files'][terraform_bin] is defined
+
+    - name: Unzip Terraform binary
+      unarchive:
+        src: "/tmp/terraform.zip"
+        dest: "/usr/local/bin/"
+        remote_src: yes
+      when: not ansible_facts['files'][terraform_bin] is defined
+
+    - name: Ensure Terraform is executable
+      file:
+        path: "{{ terraform_bin }}"
+        mode: '0755'
+
+    - name: Create Terraform directory on homelab
+      file:
+        path: "{{ terraform_dir }}"
+        state: directory
+        owner: vmadmin
+        group: vmadmin
+        mode: '0755'
+
+    - name: Copy Terraform files from masternode to homelab
+      synchronize:
+        src: "{{ terraform_src_dir }}/"
+        dest: "{{ terraform_dir }}/"
+        mode: push
+        rsync_opts:
+          - "--exclude=.terraform"
+          - "--exclude=.terraform.lock.hcl"
+      delegate_to: masternode
+
+    - name: Run terraform init
+      command: "{{ terraform_bin }} init"
+      args:
+        chdir: "{{ terraform_dir }}"
+      become_user: vmadmin
+
+    - name: Run terraform apply (auto-approve)
+      command: "{{ terraform_bin }} apply -auto-approve"
+      args:
+        chdir: "{{ terraform_dir }}"
+      become_user: vmadmin
