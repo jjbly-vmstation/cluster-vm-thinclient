@@ -3,17 +3,17 @@
 libvirt_uri    = "qemu:///system"
 pool_name      = "default"
 vm_name        = "windows-thinclient"
-memory_mb      = 4096
-vcpus          = 2
+memory_mb      = 12288
+vcpus          = 4
 os_disk_size_gb   = 64
 data_disk_size_gb = 100
 
 # Path to Windows ISO (as vmadmin on homelab: ~/iso/Win11_23H2.iso)
 # Use full path, e.g. /home/vmadmin/iso/Win11_23H2_English_x64.iso
-iso_path = "/home/vmadmin/iso/Win11_23H2_English_x64.iso"
+iso_path = "en-us_windows_11_business_editions_version_25h2_updated_feb_2026_x64_dvd_9271bf68.iso"
 
 # Network: "default" for NAT, or "br0" for bridge
 network_name = "default"
 
 # Pinned MAC - keep stable for Windows activation
-mac_address = "52:54:00:a1:b2:c3"
+mac_address = "52:54:00:00:f0:0d"
