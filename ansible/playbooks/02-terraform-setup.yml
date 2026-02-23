@@ -18,22 +18,24 @@
           - wget
         state: present
 
-    - name: Download Terraform binary if not present
-      get_url:
-        url: "https://releases.hashicorp.com/terraform/{{ terraform_version }}/terraform_{{ terraform_version }}_linux_amd64.zip"
-        dest: "/tmp/terraform.zip"
-      when: not ansible_facts['files'][terraform_bin] is defined
+    - name: Download Terraform binary
+      command: wget https://releases.hashicorp.com/terraform/1.5.0/terraform_1.5.0_linux_amd64.zip -O /tmp/terraform.zip
+      args:
+        creates: /tmp/terraform.zip
+
+    - name: Ensure unzip is installed
+      package:
+        name: unzip
+        state: present
 
     - name: Unzip Terraform binary
-      unarchive:
-        src: "/tmp/terraform.zip"
-        dest: "/usr/local/bin/"
-        remote_src: yes
-      when: not ansible_facts['files'][terraform_bin] is defined
+      command: unzip /tmp/terraform.zip -d /usr/local/bin/
+      args:
+        creates: /usr/local/bin/terraform
 
     - name: Ensure Terraform is executable
       file:
-        path: "{{ terraform_bin }}"
+        path: /usr/local/bin/terraform
         mode: '0755'
 
     - name: Create Terraform directory on homelab

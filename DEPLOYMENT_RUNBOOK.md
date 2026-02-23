@@ -85,6 +85,11 @@ cp terraform.tfvars.example terraform.tfvars
 terraform init -upgrade
 terraform apply
 # TF_LOG=DEBUG terraform apply
+
+
+# Replaced the upper block with the following
+ansible-playbook -i /opt/vmstation-org/cluster-setup/ansible/inventory/hosts.yml /opt/vmstation-org/cluster-vm-thinclient/ansible/playbooks/02-terraform-setup.yml
+
 ```
 
 ---
