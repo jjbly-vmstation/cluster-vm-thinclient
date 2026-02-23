@@ -81,7 +81,7 @@ cd cluster-vm-thinclient/terraform
 cp terraform.tfvars.example terraform.tfvars
 # Edit: iso_path, disk sizes, memory, vcpus
 terraform init
-terraform apply
+TF_LOG=DEBUG terraform apply
 ```
 
 ---
