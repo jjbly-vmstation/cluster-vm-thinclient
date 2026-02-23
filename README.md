@@ -59,6 +59,8 @@ cluster-vm-thinclient/
 
 ## Quick Start
 
+**Base path:** On masternode the repo is typically at `/opt/vmstation-org/cluster-vm-thinclient`. Adjust if you cloned elsewhere (e.g. `~/vmstation-org/cluster-vm-thinclient`).
+
 ### Prerequisites
 
 - RHEL 10 host (homelab 192.168.4.62) with libvirt/KVM
@@ -81,13 +83,14 @@ sudo apt-get update && sudo apt-get install -y terraform
 **On masternode** (SSH into homelab as jashandeepjustinbains; become root via sudo):
 
 ```bash
-cd ~/vmstation-org/cluster-vm-thinclient/ansible
+cd /opt/vmstation-org/cluster-vm-thinclient/ansible
 ansible-playbook -i inventory/hosts.yml playbooks/01-vm-user-setup.yml
 ```
 
 ### 2. Download Windows ISO
 
 ```bash
+cd /opt/vmstation-org/cluster-vm-thinclient/ansible
 ansible-playbook -i inventory/hosts.yml playbooks/02-download-windows-iso.yml \
   -e windows_iso_url="https://example.com/Win11_23H2_English_x64.iso"
 ```
@@ -98,14 +101,14 @@ Or manually place ISO in `~/iso/` on homelab as vmadmin.
 
 **3a.** Ensure `jashandeepjustinbains` is in the `libvirt` group. Re-run the playbook (it adds this):
 ```bash
-cd ~/vmstation-org/cluster-vm-thinclient/ansible
+cd /opt/vmstation-org/cluster-vm-thinclient/ansible
 ansible-playbook -i inventory/hosts.yml playbooks/01-vm-user-setup.yml
 ```
 Or manually: `ssh jashandeepjustinbains@192.168.4.62 "sudo usermod -aG libvirt jashandeepjustinbains"` (then new SSH sessions will have the group).
 
 **3b.** On masternode, provision the VM:
 ```bash
-cd ~/vmstation-org/cluster-vm-thinclient/terraform
+cd /opt/vmstation-org/cluster-vm-thinclient/terraform
 cp terraform.tfvars.example terraform.tfvars
 # Edit terraform.tfvars: iso_path (full path on homelab, e.g. /home/vmadmin/iso/YourISO.iso), memory, etc.
 terraform init
@@ -128,12 +131,14 @@ terraform apply
 - Run hardening playbook:
 
 ```bash
+cd /opt/vmstation-org/cluster-vm-thinclient/ansible
 ansible-playbook -i inventory/hosts.yml playbooks/04-windows-hardening.yml
 ```
 
 ### 6. Backups
 
 ```bash
+cd /opt/vmstation-org/cluster-vm-thinclient/ansible
 ansible-playbook -i inventory/hosts.yml playbooks/03-backup-windows-vm.yml
 ```
 

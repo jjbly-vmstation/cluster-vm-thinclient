@@ -74,12 +74,11 @@ resource "libvirt_domain" "windows" {
     volume_id = libvirt_volume.windows_data.id
   }
 
-  # Attach Windows install ISO as CDROM
+  # Attach Windows install ISO (file-based disk; boot order uses cdrom first)
   dynamic "disk" {
     for_each = var.iso_path != "" ? [1] : []
     content {
-      file   = var.iso_path
-      device = "cdrom"
+      file = var.iso_path
     }
   }
 
