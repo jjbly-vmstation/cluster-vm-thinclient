@@ -89,7 +89,7 @@ resource "libvirt_domain" "windows" {
   }
 
   graphics {
-    type        = "spice"
+    type        = "vnc"
     listen_type = "address"
     autoport    = true
   }
