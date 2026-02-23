@@ -78,11 +78,12 @@ scp Win11_23H2_English_x64.iso vmadmin@192.168.4.62:~/iso/
 
 ```bash
 cd cluster-vm-thinclient/terraform
+rm -rf .terraform .terraform.lock.hcl
 cp terraform.tfvars.example terraform.tfvars
 # Edit: iso_path, disk sizes, memory, vcpus
-terraform init
+# Note that there is a bug with terraform v0.7.6 that requires the ssh key to be in RSA format and ignores known_hosts_verify as well as keyfile parameters
+terraform init -upgrade
 terraform apply
-
 # TF_LOG=DEBUG terraform apply
 ```
 
