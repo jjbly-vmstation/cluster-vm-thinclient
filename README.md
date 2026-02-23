@@ -70,6 +70,31 @@ cluster-vm-thinclient/
 - Windows ISO (purchased/licensed)
 - Windows license key
 
+### SSH Configuration for Terraform
+
+The user running `terraform` on `masternode` needs passwordless SSH access to `homelab` (192.168.4.62) as the `jashandeepjustinbains` user. The libvirt provider will connect using this SSH connection.
+
+**On `masternode` (as the user who will run `terraform`):**
+
+1.  **Generate an SSH key (ed25519 is recommended):**
+    If you don't already have one, create it:
+    ```bash
+    ssh-keygen -t ed25519
+    ```
+    Accept the defaults by pressing Enter.
+
+2.  **Copy the public key to `homelab`:**
+    ```bash
+    ssh-copy-id -i ~/.ssh/id_ed25519.pub jashandeepjustinbains@192.168.4.62
+    ```
+    You will be prompted for the `jashandeepjustinbains` user's password on `homelab`.
+
+3.  **Test the connection:**
+    ```bash
+    ssh jashandeepjustinbains@192.168.4.62 'hostname'
+    ```
+    This should return `homelab` without asking for a password.
+
 **Install Terraform on masternode (Debian):**
 ```bash
 sudo apt-get update && sudo apt-get install -y gnupg software-properties-common
@@ -110,7 +135,13 @@ Or manually: `ssh jashandeepjustinbains@192.168.4.62 "sudo usermod -aG libvirt j
 ```bash
 cd /opt/vmstation-org/cluster-vm-thinclient/terraform
 cp terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars: iso_path (full path on homelab, e.g. /home/vmadmin/iso/YourISO.iso), memory, etc.
+# Edit terraform.tfvars:
+# 1. Set the `libvirt_uri` to use your SSH key.
+# 2. Set `iso_path` to the full path on homelab (e.g., /home/vmadmin/iso/YourISO.iso).
+# 3. Adjust memory, vcpus, etc. as needed.
+#
+# Example terraform.tfvars content:
+# libvirt_uri = "qemu+ssh://jashandeepjustinbains@192.168.4.62/system?keyfile=/home/YOUR_USER_ON_MASTERNODE/.ssh/id_ed25519"
 terraform init
 terraform apply
 ```

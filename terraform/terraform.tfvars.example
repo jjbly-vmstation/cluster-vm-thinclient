@@ -1,7 +1,7 @@
 # Copy to terraform.tfvars and edit
 # Run Terraform FROM masternode; VM created ON homelab (qemu+ssh)
 
-libvirt_uri    = "qemu+ssh://jashandeepjustinbains@192.168.4.62/system"
+libvirt_uri    = "qemu+ssh://jashandeepjustinbains@192.168.4.62/system?keyfile=/home/jjbly/.ssh/id_ed25519"
 pool_name      = "default"
 vm_name        = "windows-thinclient"
 memory_mb      = 12288
