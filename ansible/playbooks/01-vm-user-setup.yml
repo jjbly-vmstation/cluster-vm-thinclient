@@ -47,6 +47,26 @@
         mode: "0755"
       loop: "{{ vm_admin_dirs }}"
 
+    - name: "Define libvirt default storage pool"
+      ansible.builtin.command:
+        cmd: "virsh pool-define-as default dir --target /home/{{ vm_admin_user }}/disks"
+      register: pool_define
+      failed_when: "pool_define.rc != 0 and 'already exists' not in pool_define.stderr"
+      changed_when: pool_define.rc == 0
+
+    - name: "Ensure libvirt default pool is active"
+      ansible.builtin.command:
+        cmd: "virsh pool-start default"
+      register: pool_start
+      failed_when: "pool_start.rc != 0 and 'already active' not in pool_start.stderr"
+      changed_when: pool_start.rc == 0
+
+    - name: "Ensure libvirt default pool is set to autostart"
+      ansible.builtin.command:
+        cmd: "virsh pool-autostart default"
+      register: pool_autostart
+      changed_when: "'marked as autostarted' in pool_autostart.stdout"
+
     - name: "Ensure libvirt/kvm packages installed"
       ansible.builtin.package:
         name:
