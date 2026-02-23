@@ -5,7 +5,7 @@
   vars:
     terraform_version: "1.5.0"
     terraform_bin: "/usr/local/bin/terraform"
-    terraform_dir: "/home/jashandeepjustinbains/vmstation-org/cluster-vm-thinclient/terraform"
+    terraform_dir: "/home/vmadmin/vmstation-org/cluster-vm-thinclient/terraform"
     terraform_src_dir: "/opt/vmstation-org/cluster-vm-thinclient/terraform"  # Adjust if needed
 
   tasks:
@@ -55,6 +55,13 @@
           - "--exclude=.terraform"
           - "--exclude=.terraform.lock.hcl"
       delegate_to: masternode
+    - name: Ensure Terraform directory and files are owned by vmadmin
+      file:
+        path: "{{ terraform_dir }}"
+        state: directory
+        owner: vmadmin
+        group: vmadmin
+        recurse: yes
 
     - name: Run terraform init
       command: "{{ terraform_bin }} init"
