@@ -70,7 +70,7 @@
       become_user: vmadmin
 
     - name: Run terraform apply (auto-approve)
-      command: "{{ terraform_bin }} apply -auto-approve"
+      command: "{{ terraform_bin }} apply -auto-approve -var='libvirt_uri=qemu:///system'"
       args:
         chdir: "{{ terraform_dir }}"
       become_user: vmadmin
