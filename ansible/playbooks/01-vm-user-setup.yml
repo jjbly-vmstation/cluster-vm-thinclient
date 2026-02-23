@@ -56,6 +56,12 @@
         state: present
       when: ansible_facts['os_family'] == 'RedHat'
 
+    - name: "Add jashandeepjustinbains to libvirt group (for Terraform qemu+ssh from masternode)"
+      ansible.builtin.user:
+        name: jashandeepjustinbains
+        groups: libvirt
+        append: true
+
     - name: "Ensure libvirt default URI allows vmadmin (policykit)"
       ansible.builtin.lineinfile:
         path: "/etc/libvirt/libvirtd.conf"

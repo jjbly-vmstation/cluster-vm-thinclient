@@ -62,11 +62,19 @@ cluster-vm-thinclient/
 ### Prerequisites
 
 - RHEL 10 host (homelab 192.168.4.62) with libvirt/KVM
-- **masternode** (192.168.4.63) – run Ansible playbooks from here; SSH into homelab as `jashandeepjustinbains` (passwordless sudo)
+- **masternode** (192.168.4.63) – run Ansible and Terraform from here; SSH into homelab as `jashandeepjustinbains` (passwordless sudo)
 - Ansible 2.15+ on masternode
-- Terraform 1.5+ on homelab (or masternode if using remote libvirt URI)
+- Terraform 1.5+ on masternode (connects to homelab via qemu+ssh)
 - Windows ISO (purchased/licensed)
 - Windows license key
+
+**Install Terraform on masternode (Debian):**
+```bash
+sudo apt-get update && sudo apt-get install -y gnupg software-properties-common
+wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+sudo apt-get update && sudo apt-get install -y terraform
+```
 
 ### 1. Create VM user and directories
 
@@ -86,12 +94,20 @@ ansible-playbook -i inventory/hosts.yml playbooks/02-download-windows-iso.yml \
 
 Or manually place ISO in `~/iso/` on homelab as vmadmin.
 
-### 3. Provision VM with Terraform
+### 3. Provision VM with Terraform (from masternode → homelab)
 
+**3a.** Ensure `jashandeepjustinbains` is in the `libvirt` group. Re-run the playbook (it adds this):
 ```bash
-cd ../terraform
+cd ~/vmstation-org/cluster-vm-thinclient/ansible
+ansible-playbook -i inventory/hosts.yml playbooks/01-vm-user-setup.yml
+```
+Or manually: `ssh jashandeepjustinbains@192.168.4.62 "sudo usermod -aG libvirt jashandeepjustinbains"` (then new SSH sessions will have the group).
+
+**3b.** On masternode, provision the VM:
+```bash
+cd ~/vmstation-org/cluster-vm-thinclient/terraform
 cp terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars: iso_path, disk sizes, etc.
+# Edit terraform.tfvars: iso_path (full path on homelab, e.g. /home/vmadmin/iso/YourISO.iso), memory, etc.
 terraform init
 terraform apply
 ```
