@@ -9,16 +9,30 @@
     terraform_src_dir: "{{ playbook_dir }}/../../terraform"
 
   tasks:
-    - name: Ensure required packages are installed
-      package:
+    - name: Ensure required packages are installed (Debian/Ubuntu)
+      apt:
+        name:
+          - libvirt-daemon-system
+          - libvirt-clients
+          - qemu-kvm
+          - unzip
+          - wget
+          - genisoimage
+          - libvirt-dev
+        state: present
+        update_cache: true
+      when: ansible_os_family == "Debian"
+
+    - name: Ensure required packages are installed (RedHat/CentOS)
+      yum:
         name:
           - libvirt
           - qemu-kvm
           - unzip
           - wget
           - genisoimage
-          - libvirt-devel
         state: present
+      when: ansible_os_family == "RedHat"
 
     - name: Remove existing Terraform binary to ensure correct version
       file:
