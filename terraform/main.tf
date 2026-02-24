@@ -93,13 +93,10 @@ resource "libvirt_domain" "windows" {
     type           = "vnc"
     listen_type    = "address"
     listen_address = "127.0.0.1"
-    autoport       = false
-    port           = 5900
+    autoport       = true
   }
   video {
     type = "qxl"
-    vram = 65536
-    ram  = 65536
   }
   tpm {
     model = "tpm-tis"
