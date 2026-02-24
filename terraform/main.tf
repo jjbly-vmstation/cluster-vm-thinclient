@@ -95,11 +95,6 @@ resource "libvirt_domain" "windows" {
     file = "/usr/share/edk2/ovmf/OVMF_VARS.secboot.fd"
   }
 
-  tpm {
-    backend_type = "emulator"
-    model        = "tpm-crb"
-  }
-
   graphics {
     type           = "vnc"
     listen_type    = "address"
