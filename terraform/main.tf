@@ -92,7 +92,7 @@ resource "libvirt_domain" "windows" {
   firmware = "/usr/share/edk2/ovmf/OVMF_CODE.fd"
 
   nvram {
-    file = "/usr/share/edk2/ovmf/OVMF_VARS.fd"
+    file = "/home/vmadmin/disks/windows-vars.fd"
   }
 
   graphics {
