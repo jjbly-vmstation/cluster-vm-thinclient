@@ -90,8 +90,19 @@ resource "libvirt_domain" "windows" {
   }
 
   graphics {
-    type        = "vnc"
-    listen_type = "address"
-    autoport    = true
+    type           = "vnc"
+    listen_type    = "address"
+    listen_address = "127.0.0.1"
+    autoport       = false
+    port           = 5900
+  }
+  video {
+    type = "qxl"
+    vram = 65536
+    ram  = 65536
+    heads = 1
+  }
+  tpm {
+    model = "tpm-tis"
   }
 }
