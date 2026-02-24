@@ -57,7 +57,6 @@ resource "libvirt_domain" "windows" {
     network_name = var.network_name
     mac          = var.mac_address
   }
-
   boot_device {
     dev = ["cdrom", "hd"]
   }
@@ -75,7 +74,6 @@ resource "libvirt_domain" "windows" {
   # Windows installation ISO — SATA CD-ROM
   disk {
     file = var.iso_path
-    # SATA bus for UEFI boot reliability
     bus  = "sata"
   }
 
