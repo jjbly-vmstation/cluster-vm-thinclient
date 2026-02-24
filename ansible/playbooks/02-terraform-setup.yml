@@ -38,6 +38,11 @@
         path: /usr/local/bin/terraform
         mode: '0755'
 
+    - name: Remove existing Terraform directory to ensure clean state
+      file:
+        path: "{{ terraform_dir }}"
+        state: absent
+
     - name: Create Terraform directory on homelab
       file:
         path: "{{ terraform_dir }}"
@@ -77,16 +82,8 @@
         mode: '0644'
       when: not homelab_iso.stat.exists
 
-    - name: Remove stale Terraform lock file and provider cache
-      file:
-        path: "{{ item }}"
-        state: absent
-      loop:
-        - "{{ terraform_dir }}/.terraform.lock.hcl"
-        - "{{ terraform_dir }}/.terraform"
-
     - name: Run terraform init
-      command: "{{ terraform_bin }} init -upgrade"
+      command: "{{ terraform_bin }} init -upgrade -reconfigure"
       args:
         chdir: "{{ terraform_dir }}"
       become_user: vmadmin
