@@ -6,7 +6,7 @@
     terraform_version: "1.5.0"
     terraform_bin: "/usr/local/bin/terraform"
     terraform_dir: "/home/vmadmin/vmstation-org/cluster-vm-thinclient/terraform"
-    terraform_src_dir: "/opt/vmstation-org/cluster-vm-thinclient/terraform"  # Adjust if needed
+    terraform_src_dir: "{{ playbook_dir }}/../../terraform"
 
   tasks:
     - name: Ensure required packages are installed
@@ -17,6 +17,11 @@
           - unzip
           - wget
         state: present
+
+    - name: Remove existing Terraform binary to ensure correct version
+      file:
+        path: /usr/local/bin/terraform
+        state: absent
 
     - name: Download Terraform binary
       command: wget https://releases.hashicorp.com/terraform/1.5.0/terraform_1.5.0_linux_amd64.zip -O /tmp/terraform.zip
@@ -51,7 +56,7 @@
         group: vmadmin
         mode: '0755'
 
-    - name: Copy Terraform files from masternode to homelab
+    - name: Copy Terraform files from controller to homelab
       synchronize:
         src: "{{ terraform_src_dir }}/"
         dest: "{{ terraform_dir }}/"
@@ -59,7 +64,6 @@
         rsync_opts:
           - "--exclude=.terraform"
           - "--exclude=.terraform.lock.hcl"
-      delegate_to: masternode
     - name: Ensure Terraform directory and files are owned by vmadmin
       file:
         path: "{{ terraform_dir }}"
@@ -87,6 +91,17 @@
       args:
         chdir: "{{ terraform_dir }}"
       become_user: vmadmin
+
+    - name: Check Terraform providers (debug)
+      command: "{{ terraform_bin }} providers"
+      args:
+        chdir: "{{ terraform_dir }}"
+      become_user: vmadmin
+      register: tf_providers
+
+    - name: Display Terraform providers
+      debug:
+        var: tf_providers.stdout_lines
 
     - name: Run terraform apply (auto-approve)
       command: "{{ terraform_bin }} apply -auto-approve -var='libvirt_uri=qemu:///system'"
