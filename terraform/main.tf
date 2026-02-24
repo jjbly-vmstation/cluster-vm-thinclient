@@ -48,8 +48,6 @@ resource "libvirt_domain" "windows" {
   memory = var.memory_mb
   vcpu   = var.vcpus
   type   = "kvm"
-  machine = "q35"
-  qemu_agent = true
 
   cpu {
     mode = "host-passthrough"
