@@ -59,18 +59,20 @@
         path: /usr/local/bin/terraform
         mode: '0755'
 
-    - name: Remove existing Terraform directory to ensure clean state
-      file:
-        path: "{{ terraform_dir }}"
-        state: absent
+    - name: Check for existing Windows VM (cleanup conflict)
+      command: virsh dominfo windows-thinclient
+      register: vm_check
+      failed_when: false
+      changed_when: false
 
-    - name: Remove user-level Terraform config and cache
-      file:
-        path: "{{ item }}"
-        state: absent
-      loop:
-        - "/home/vmadmin/.terraformrc"
-        - "/home/vmadmin/.terraform.d"
+    - name: Destroy existing Windows VM (cleanup conflict)
+      command: virsh destroy windows-thinclient
+      when: vm_check.rc == 0 and 'running' in vm_check.stdout|lower
+      ignore_errors: true
+
+    - name: Undefine existing Windows VM (cleanup conflict)
+      command: virsh undefine windows-thinclient --nvram
+      when: vm_check.rc == 0
 
     - name: Create Terraform directory on homelab
       file:
