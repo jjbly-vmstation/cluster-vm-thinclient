@@ -63,11 +63,17 @@
         group: vmadmin
         recurse: yes
 
-    - name: Download VirtIO drivers ISO (delegate to controller)
+    - name: Check if VirtIO ISO already exists
+      stat:
+        path: "/tmp/virtio-win.iso"
+      register: virtio_iso
+
+    - name: Download VirtIO drivers ISO if missing
       get_url:
-        url: "https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso"
+        url: "https://github.com/virtio-win/virtio-win-pkg-scripts/releases/latest/download/virtio-win.iso"
         dest: "/tmp/virtio-win.iso"
         mode: '0644'
+      when: not virtio_iso.stat.exists
       delegate_to: localhost
       run_once: true
 
