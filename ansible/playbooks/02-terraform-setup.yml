@@ -63,6 +63,14 @@
         group: vmadmin
         recurse: yes
 
+    - name: Download VirtIO drivers ISO
+      get_url:
+        url: "https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso"
+        dest: "/home/vmadmin/iso/virtio-win.iso"
+        owner: vmadmin
+        group: vmadmin
+        mode: '0644'
+
     - name: Run terraform init
       command: "{{ terraform_bin }} init"
       args:
