@@ -63,6 +63,11 @@
         group: vmadmin
         recurse: yes
 
+    - name: Check if VirtIO ISO already exists on homelab
+      stat:
+        path: "/home/vmadmin/iso/virtio-win.iso"
+      register: homelab_iso
+
     - name: Copy VirtIO drivers ISO to homelab (only if changed)
       copy:
         src: "/tmp/virtio-win.iso"
