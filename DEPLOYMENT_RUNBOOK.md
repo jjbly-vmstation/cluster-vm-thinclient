@@ -90,7 +90,12 @@ terraform apply
 # Replaced the upper block with the following
 ansible-playbook -i /opt/vmstation-org/cluster-setup/ansible/inventory/hosts.yml /opt/vmstation-org/cluster-vm-thinclient/ansible/playbooks/02-terraform-setup.yml
 
+# on the homelab node for initial setup
+sudo virsh console windows-thinclient
+
 ```
+
+
 
 ---
 
