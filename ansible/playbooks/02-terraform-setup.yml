@@ -16,6 +16,8 @@
           - qemu-kvm
           - unzip
           - wget
+          - genisoimage
+          - libvirt-devel
         state: present
 
     - name: Remove existing Terraform binary to ensure correct version
@@ -47,6 +49,14 @@
       file:
         path: "{{ terraform_dir }}"
         state: absent
+
+    - name: Remove user-level Terraform config and cache
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "/home/vmadmin/.terraformrc"
+        - "/home/vmadmin/.terraform.d"
 
     - name: Create Terraform directory on homelab
       file:
@@ -99,9 +109,18 @@
       become_user: vmadmin
       register: tf_providers
 
+    - name: Check Terraform version (debug)
+      command: "{{ terraform_bin }} version"
+      args:
+        chdir: "{{ terraform_dir }}"
+      become_user: vmadmin
+      register: tf_version
+
     - name: Display Terraform providers
       debug:
-        var: tf_providers.stdout_lines
+        msg: 
+          - "Providers: {{ tf_providers.stdout_lines }}"
+          - "Version: {{ tf_version.stdout_lines }}"
 
     - name: Run terraform apply (auto-approve)
       command: "{{ terraform_bin }} apply -auto-approve -var='libvirt_uri=qemu:///system'"
