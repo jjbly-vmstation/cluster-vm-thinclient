@@ -96,7 +96,7 @@ resource "libvirt_domain" "windows" {
     autoport       = true
   }
   video {
-    type = "qxl"
+    type = "virtio"
   }
   tpm {
     model = "tpm-tis"
