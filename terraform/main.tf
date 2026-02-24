@@ -1,3 +1,4 @@
+
 # Windows VM on libvirt/KVM (RHEL homelab)
 # Two disks: windows-os.qcow2 (OS+activation), windows-data.qcow2 (user data)
 # Pinned MAC address for stable activation
@@ -20,26 +21,16 @@ provider "libvirt" {
 
 # OS disk (Windows + activation) - empty qcow2 for fresh install
 resource "libvirt_volume" "windows_os" {
-  name   = "windows-os.qcow2"
-  pool   = var.pool_name
-  format = "qcow2"
-  size   = var.os_disk_size_gb * 1024 * 1024 * 1024
-
-  lifecycle {
-    prevent_destroy = true
-  }
+  name = "windows-os.qcow2"
+  pool = var.pool_name
+  size = var.os_disk_size_gb * 1024 * 1024 * 1024
 }
 
 # Data disk (persistent user data)
 resource "libvirt_volume" "windows_data" {
-  name   = "windows-data.qcow2"
-  pool   = var.pool_name
-  format = "qcow2"
-  size   = var.data_disk_size_gb * 1024 * 1024 * 1024
-
-  lifecycle {
-    prevent_destroy = true
-  }
+  name = "windows-data.qcow2"
+  pool = var.pool_name
+  size = var.data_disk_size_gb * 1024 * 1024 * 1024
 }
 
 # Windows VM
@@ -47,6 +38,7 @@ resource "libvirt_domain" "windows" {
   name   = var.vm_name
   memory = var.memory_mb
   vcpu   = var.vcpus
+  type   = "kvm"
 
   cpu {
     mode = "host-passthrough"
@@ -57,6 +49,7 @@ resource "libvirt_domain" "windows" {
     network_name = var.network_name
     mac          = var.mac_address
   }
+
   boot_device {
     dev = ["cdrom", "hd"]
   }
@@ -81,7 +74,6 @@ resource "libvirt_domain" "windows" {
     file = "/home/vmadmin/iso/virtio-win.iso"
   }
 
-
   console {
     type        = "pty"
     target_type = "serial"
@@ -103,11 +95,15 @@ resource "libvirt_domain" "windows" {
   graphics {
     type           = "vnc"
     listen_type    = "address"
-    listen_address = "127.0.0.1" 
+    listen_address = "127.0.0.1"
     autoport       = true
   }
 
   video {
     type = "virtio"
+  }
+
+  lifecycle {
+    ignore_changes = [nvram]
   }
 }
