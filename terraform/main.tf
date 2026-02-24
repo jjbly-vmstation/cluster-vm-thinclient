@@ -9,7 +9,7 @@ terraform {
   required_providers {
     libvirt = {
       source  = "dmacvicar/libvirt"
-      version = "~> 0.7.6"
+      version = ">= 0.7.6"
     }
   }
 }
@@ -92,6 +92,12 @@ resource "libvirt_domain" "windows" {
 
   nvram {
     file = "/home/vmadmin/disks/windows-vars.fd"
+  }
+
+  # Windows 11 requires TPM 2.0
+  tpm {
+    backend_type    = "emulator"
+    backend_version = "2.0"
   }
 
   graphics {
