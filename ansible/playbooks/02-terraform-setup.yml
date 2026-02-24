@@ -63,9 +63,17 @@
         group: vmadmin
         recurse: yes
 
-    - name: Download VirtIO drivers ISO
+    - name: Download VirtIO drivers ISO (delegate to controller)
       get_url:
         url: "https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso"
+        dest: "/tmp/virtio-win.iso"
+        mode: '0644'
+      delegate_to: localhost
+      run_once: true
+
+    - name: Copy VirtIO drivers ISO to homelab
+      copy:
+        src: "/tmp/virtio-win.iso"
         dest: "/home/vmadmin/iso/virtio-win.iso"
         owner: vmadmin
         group: vmadmin
