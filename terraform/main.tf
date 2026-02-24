@@ -74,13 +74,11 @@ resource "libvirt_domain" "windows" {
   # Windows installation ISO — SATA CD-ROM
   disk {
     file = var.iso_path
-    bus  = "sata"
   }
 
   # VirtIO drivers ISO — second SATA CD-ROM
   disk {
     file = "/home/vmadmin/iso/virtio-win.iso"
-    bus  = "sata"
   }
 
 
