@@ -89,16 +89,25 @@ resource "libvirt_domain" "windows" {
     target_port = "0"
   }
 
+  firmware = "/usr/share/edk2/ovmf/OVMF_CODE.secboot.fd"
+
+  nvram {
+    file = "/usr/share/edk2/ovmf/OVMF_VARS.secboot.fd"
+  }
+
+  tpm {
+    backend_type = "emulator"
+    model        = "tpm-crb"
+  }
+
   graphics {
     type           = "vnc"
     listen_type    = "address"
     listen_address = "127.0.0.1"
     autoport       = true
   }
+
   video {
-    type = "virtio"
-  }
-  tpm {
-    model = "tpm-tis"
+    type = "virtio-vga"
   }
 }
