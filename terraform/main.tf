@@ -100,7 +100,6 @@ resource "libvirt_domain" "windows" {
     type = "qxl"
     vram = 65536
     ram  = 65536
-    heads = 1
   }
   tpm {
     model = "tpm-tis"
