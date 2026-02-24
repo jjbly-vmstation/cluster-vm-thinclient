@@ -3,6 +3,7 @@
 # Pinned MAC address for stable activation
 #
 # terraform init && terraform apply
+# If provider errors occur, run: terraform init -upgrade
 
 terraform {
   required_version = ">= 1.5.0"
@@ -22,7 +23,6 @@ provider "libvirt" {
 resource "libvirt_volume" "windows_os" {
   name   = "windows-os.qcow2"
   pool   = var.pool_name
-  format = "qcow2"
   size   = var.os_disk_size_gb * 1024 * 1024 * 1024
 
   lifecycle {
@@ -34,7 +34,6 @@ resource "libvirt_volume" "windows_os" {
 resource "libvirt_volume" "windows_data" {
   name   = "windows-data.qcow2"
   pool   = var.pool_name
-  format = "qcow2"
   size   = var.data_disk_size_gb * 1024 * 1024 * 1024
 
   lifecycle {
