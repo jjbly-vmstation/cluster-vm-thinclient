@@ -48,10 +48,6 @@ resource "libvirt_domain" "windows" {
   memory = var.memory_mb
   vcpu   = var.vcpus
 
-  lifecycle {
-    prevent_destroy = true
-  }
-
   cpu {
     mode = "host-passthrough"
   }
