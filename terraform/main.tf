@@ -58,7 +58,6 @@ resource "libvirt_domain" "windows" {
     mac          = var.mac_address
   }
 
-  
   boot_device {
     dev = ["cdrom", "hd"]
   }
@@ -73,29 +72,19 @@ resource "libvirt_domain" "windows" {
     volume_id = libvirt_volume.windows_data.id
   }
 
-  # Windows installation ISO — MUST be SATA + boot_order = 1
+  # Windows installation ISO — SATA CD-ROM
   disk {
     file = var.iso_path
-
-    # Explicit SATA CD-ROM
-    target {
-      dev = "sda"
-      bus = "sata"
-    }
-
-    # Ensure Windows ISO boots first
-    boot_order = 1
+    # SATA bus for UEFI boot reliability
+    bus  = "sata"
   }
 
-  # VirtIO drivers ISO — attach as second SATA CD-ROM
+  # VirtIO drivers ISO — second SATA CD-ROM
   disk {
     file = "/home/vmadmin/iso/virtio-win.iso"
-
-    target {
-      dev = "sdb"
-      bus = "sata"
-    }
+    bus  = "sata"
   }
+
 
   console {
     type        = "pty"
