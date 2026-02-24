@@ -82,6 +82,11 @@ resource "libvirt_domain" "windows" {
     }
   }
 
+  # Attach VirtIO Drivers ISO
+  disk {
+    file = "/home/vmadmin/iso/virtio-win.iso"
+  }
+
   console {
     type        = "pty"
     target_type = "serial"
