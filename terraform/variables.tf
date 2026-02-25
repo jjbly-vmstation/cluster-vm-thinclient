@@ -61,11 +61,11 @@ variable "mac_address" {
 variable "firmware_path" {
   description = "Path to OVMF Secure Boot firmware code"
   type        = string
-  default     = "/usr/share/edk2/ovmf/OVMF_CODE.secboot.fd"
+  default     = "/home/vmadmin/disks/firmware/OVMF_CODE.secboot.fd"
 }
 
 variable "nvram_template" {
   description = "Path to OVMF variables template"
   type        = string
-  default     = "/usr/share/edk2/ovmf/OVMF_VARS.fd"
+  default     = "/home/vmadmin/disks/firmware/OVMF_VARS.fd"
 }

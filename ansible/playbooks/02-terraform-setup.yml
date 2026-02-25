@@ -148,53 +148,64 @@
         msg: 
           - "Providers: {{ tf_providers.stdout_lines }}"
           - "Version: {{ tf_version.stdout_lines }}"
-    
-    - name: Check for OVMF Code file
-      stat:
-        path: /usr/share/edk2/ovmf/OVMF_CODE.secboot.fd
-      register: ovmf_code_stat
 
-    - name: Fail if OVMF Code is missing
-      fail:
-        msg: "Required OVMF Code file missing: /usr/share/edk2/ovmf/OVMF_CODE.secboot.fd"
-      when: not ovmf_code_stat.stat.exists
-
-    - name: Set search path for OVMF
-      set_fact:
-        ovmf_search_dir: "{{ '/usr/share/edk2/ovmf' if ansible_os_family == 'RedHat' else '/usr/share/OVMF' }}"
-
-    - name: Find valid OVMF Variables Template
+    - name: Find OVMF firmware files on host system
       find:
-        paths: "{{ ovmf_search_dir }}"
-        patterns: ["OVMF_VARS.fd", "OVMF_VARS.secboot.fd", "OVMF_VARS.4m.fd"]
+        paths: /usr/share
+        patterns: ["OVMF_CODE.secboot.fd", "OVMF_VARS.fd"]
         file_type: file
         follow: yes
-      register: ovmf_vars_found
+      register: ovmf_files_found
 
-    - name: Set OVMF Variables Template path
+    - name: Set found OVMF file paths
       set_fact:
-        ovmf_vars_path: "{{ (ovmf_vars_found.files | map(attribute='path') | list | sort | first) | default('') }}"
+        ovmf_code_src_path: "{{ (ovmf_files_found.files | selectattr('path', 'match', '.*OVMF_CODE.secboot.fd') | map(attribute='path') | first) | default('') }}"
+        ovmf_vars_src_path: "{{ (ovmf_files_found.files | selectattr('path', 'match', '.*OVMF_VARS.fd') | map(attribute='path') | first) | default('') }}"
 
-    - name: Fail if no OVMF Variables Template found
+    - name: Fail if OVMF files are not found
       fail:
-        msg: "Could not find a valid OVMF Variables Template. Checked standard RHEL paths."
-      when: ovmf_vars_path == ''
+        msg: |
+          Could not find required OVMF files (OVMF_CODE.secboot.fd, OVMF_VARS.fd) in /usr/share.
+          Please ensure the 'edk2-ovmf' package is installed and provides these files.
+          Debug Info:
+          OVMF_CODE.secboot.fd found at: {{ ovmf_code_src_path }}
+          OVMF_VARS.fd found at: {{ ovmf_vars_src_path }}
+      when: ovmf_code_src_path == '' or ovmf_vars_src_path == ''
+
+    - name: Create a controlled firmware directory for the VM
+      file:
+        path: "/home/vmadmin/disks/firmware"
+        state: directory
+        owner: vmadmin
+        group: vmadmin
+        mode: '0755'
+
+    - name: Copy OVMF files to controlled directory
+      copy:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        remote_src: yes
+        owner: vmadmin
+        group: vmadmin
+        mode: '0644'
+      loop:
+        - { src: "{{ ovmf_code_src_path }}", dest: "/home/vmadmin/disks/firmware/OVMF_CODE.secboot.fd" }
+        - { src: "{{ ovmf_vars_src_path }}", dest: "/home/vmadmin/disks/firmware/OVMF_VARS.fd" }
 
     - name: Ensure semanage is available for permanent SELinux changes
       yum:
         name: policycoreutils-python-utils
         state: present
       when: ansible_os_family == "RedHat"
-
-    - name: Set permanent SELinux context for OVMF directory
-      command: "semanage fcontext -a -t svirt_image_t '{{ ovmf_vars_path | dirname }}(/.*)?'"
+    - name: Set permanent SELinux context for controlled firmware directory
+      command: "semanage fcontext -a -t svirt_image_t '/home/vmadmin/disks/firmware(/.*)?'"
       register: semanage_result
       changed_when: "'already defined' not in semanage_result.stderr"
       failed_when: semanage_result.rc != 0 and 'already defined' not in semanage_result.stderr
       when: ansible_os_family == "RedHat"
 
-    - name: Apply SELinux context to OVMF directory
-      command: "restorecon -Rv {{ ovmf_vars_path | dirname }}"
+    - name: Apply SELinux context to controlled firmware directory
+      command: "restorecon -Rv /home/vmadmin/disks/firmware"
       register: restorecon_result
       changed_when: "'Relabeled' in restorecon_result.stdout"
       when: ansible_os_family == "RedHat"
@@ -203,8 +214,8 @@
       command: >
         {{ terraform_bin }} apply -auto-approve 
         -var='libvirt_uri=qemu:///system' 
-        -var='firmware_path=/usr/share/edk2/ovmf/OVMF_CODE.secboot.fd' 
-        -var='nvram_template={{ ovmf_vars_path }}'
+        -var='firmware_path=/home/vmadmin/disks/firmware/OVMF_CODE.secboot.fd' 
+        -var='nvram_template=/home/vmadmin/disks/firmware/OVMF_VARS.fd'
       args:
         chdir: "{{ terraform_dir }}"
       become_user: vmadmin
