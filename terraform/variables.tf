@@ -57,3 +57,15 @@ variable "mac_address" {
   type        = string
   default     = "52:54:00:a1:b2:c3"  # Replace with desired MAC
 }
+
+variable "firmware_path" {
+  description = "Path to OVMF Secure Boot firmware code"
+  type        = string
+  default     = "/usr/share/edk2/ovmf/OVMF_CODE.secboot.fd"
+}
+
+variable "nvram_template" {
+  description = "Path to OVMF variables template"
+  type        = string
+  default     = "/usr/share/edk2/ovmf/OVMF_VARS.fd"
+}

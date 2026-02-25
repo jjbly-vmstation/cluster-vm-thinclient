@@ -149,8 +149,35 @@
           - "Providers: {{ tf_providers.stdout_lines }}"
           - "Version: {{ tf_version.stdout_lines }}"
 
+    - name: Find OVMF Secure Boot firmware
+      find:
+        paths: 
+          - /usr/share/edk2/ovmf
+          - /usr/share/OVMF
+        patterns: 
+          - "OVMF_CODE.secboot.fd"
+          - "OVMF_CODE_4M.secboot.fd"
+        recurse: yes
+      register: ovmf_code_find
+
+    - name: Find OVMF VARS template
+      find:
+        paths: 
+          - /usr/share/edk2/ovmf
+          - /usr/share/OVMF
+        patterns: 
+          - "OVMF_VARS.fd"
+          - "OVMF_VARS_4M.fd"
+        recurse: yes
+      register: ovmf_vars_find
+
+    - name: Fail if OVMF files are missing
+      fail:
+        msg: "Could not find OVMF firmware or variables template. Ensure edk2-ovmf is installed."
+      when: ovmf_code_find.matched == 0 or ovmf_vars_find.matched == 0
+
     - name: Run terraform apply (auto-approve)
-      command: "{{ terraform_bin }} apply -auto-approve -var='libvirt_uri=qemu:///system'"
+      command: "{{ terraform_bin }} apply -auto-approve -var='libvirt_uri=qemu:///system' -var='firmware_path={{ ovmf_code_find.files[0].path }}' -var='nvram_template={{ ovmf_vars_find.files[0].path }}'"
       args:
         chdir: "{{ terraform_dir }}"
       become_user: vmadmin

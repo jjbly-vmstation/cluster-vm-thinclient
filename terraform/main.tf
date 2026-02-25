@@ -48,7 +48,7 @@ resource "libvirt_domain" "windows" {
   vcpu   = var.vcpus
   type   = "kvm"
   machine = "q35"
-  firmware = "/usr/share/edk2/ovmf/OVMF_CODE.secboot.fd"
+  firmware = var.firmware_path
 
   cpu {
     mode = "host-passthrough"
@@ -92,7 +92,7 @@ resource "libvirt_domain" "windows" {
 
   nvram {
     file     = "/home/vmadmin/disks/windows-vars.fd"
-    template = "/usr/share/edk2/ovmf/OVMF_VARS.fd"
+    template = var.nvram_template
   }
 
   # Windows 11 requires TPM 2.0
