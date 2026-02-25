@@ -103,8 +103,7 @@ resource "libvirt_domain" "windows" {
     type           = "vnc"
     listen_type    = "address"
     listen_address = "0.0.0.0" # Listen on all interfaces
-    autoport       = false # Disable autoport to enforce the fixed port
-    port           = 5900  # Fixed VNC port 5900
+    autoport       = true
   }
 
   video {
