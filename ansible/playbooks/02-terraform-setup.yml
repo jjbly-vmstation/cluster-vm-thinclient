@@ -162,19 +162,17 @@
         msg: "Required OVMF file missing: {{ item.item }}"
       when: not item.stat.exists
       loop: "{{ ovmf_stats.results }}"
-
+    
+    
     - name: Run terraform apply (auto-approve)
       command: >
         {{ terraform_bin }} apply -auto-approve 
         -var='libvirt_uri=qemu:///system' 
-        -var='firmware_path=/usr/share/OVMF/OVMF_CODE.secboot.fd' 
-        -var='nvram_template=/usr/share/OVMF/OVMF_VARS.fd'
+        -var='firmware_path=/usr/share/edk2/ovmf/OVMF_CODE.secboot.fd' 
+        -var='nvram_template=/usr/share/edk2/ovmf/OVMF_VARS.fd'
       args:
         chdir: "{{ terraform_dir }}"
       become_user: vmadmin
-
-
-
 
     - name: Get edk2-ovmf package file list for debugging
       command: rpm -ql edk2-ovmf
