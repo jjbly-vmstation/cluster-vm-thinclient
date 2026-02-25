@@ -148,7 +148,7 @@
         msg: 
           - "Providers: {{ tf_providers.stdout_lines }}"
           - "Version: {{ tf_version.stdout_lines }}"
-
+    
     - name: Find OVMF Secure Boot firmware
       find:
         paths: 
@@ -159,6 +159,8 @@
         patterns: 
           - "OVMF_CODE.secboot.fd"
           - "OVMF_CODE_4M.secboot.fd"
+        file_type: any     # <-- Add this
+        follow: true       # <-- Add this
         recurse: yes
       register: ovmf_code_find
 
@@ -170,8 +172,10 @@
           - /boot/efi/EFI/redhat
           - /boot/efi/EFI/centos
         patterns: 
-          - "OVMF_VARS.secboot.fd"     # <-- Updated
-          - "OVMF_VARS_4M.secboot.fd"  # <-- Updated
+          - "OVMF_VARS.secboot.fd"
+          - "OVMF_VARS_4M.secboot.fd"
+        file_type: any     # <-- Add this
+        follow: true       # <-- Add this
         recurse: yes
       register: ovmf_vars_find
 
