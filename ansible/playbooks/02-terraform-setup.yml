@@ -155,7 +155,7 @@
       register: ovmf_stats
       loop:
         - /usr/share/edk2/ovmf/OVMF_CODE.secboot.fd
-        - /usr/share/edk2/ovmf/OVMF_VARS.secboot.fd
+        - /usr/share/edk2/ovmf/OVMF_VARS.fd
 
     - name: Fail if OVMF files are missing
       fail:
@@ -168,7 +168,7 @@
         {{ terraform_bin }} apply -auto-approve 
         -var='libvirt_uri=qemu:///system' 
         -var='firmware_path=/usr/share/edk2/ovmf/OVMF_CODE.secboot.fd' 
-        -var='nvram_template=/usr/share/edk2/ovmf/OVMF_VARS.secboot.fd'
+        -var='nvram_template=/usr/share/edk2/ovmf/OVMF_VARS.fd'
       args:
         chdir: "{{ terraform_dir }}"
       become_user: vmadmin
