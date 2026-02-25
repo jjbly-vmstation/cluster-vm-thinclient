@@ -112,12 +112,6 @@ resource "libvirt_domain" "windows" {
     type = "virtio"
   }
 
-  # USB Tablet for proper mouse alignment in VNC
-  input {
-    type = "tablet"
-    bus  = "usb"
-  }
-
   xml {
     xslt = <<EOF
 <?xml version="1.0" ?>
@@ -148,6 +142,13 @@ resource "libvirt_domain" "windows" {
 
   <xsl:template match="/domain/devices/disk[@device='cdrom']/target/@bus">
     <xsl:attribute name="bus">sata</xsl:attribute>
+  </xsl:template>
+
+  <xsl:template match="/domain/devices">
+    <xsl:copy>
+      <xsl:apply-templates select="node()|@*"/>
+      <input type="tablet" bus="usb"/>
+    </xsl:copy>
   </xsl:template>
 </xsl:stylesheet>
 EOF
