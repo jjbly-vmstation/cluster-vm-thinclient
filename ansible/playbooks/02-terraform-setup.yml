@@ -59,20 +59,13 @@
         path: /usr/local/bin/terraform
         mode: '0755'
 
-    - name: Check for existing Windows VM (cleanup conflict)
-      command: virsh dominfo windows-thinclient
-      register: vm_check
-      failed_when: false
-      changed_when: false
-
-    - name: Destroy existing Windows VM (cleanup conflict)
-      command: virsh destroy windows-thinclient
-      when: vm_check.rc == 0 and 'running' in vm_check.stdout|lower
-      ignore_errors: true
-
-    - name: Undefine existing Windows VM (cleanup conflict)
-      command: virsh undefine windows-thinclient --nvram
-      when: vm_check.rc == 0
+    - name: Allow VNC ports in firewall
+      ansible.posix.firewalld:
+        port: 5900-5905/tcp
+        permanent: true
+        state: enabled
+        immediate: true
+      when: ansible_os_family == "RedHat"
 
     - name: Create Terraform directory on homelab
       file:

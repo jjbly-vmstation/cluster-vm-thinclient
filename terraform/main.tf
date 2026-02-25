@@ -102,7 +102,7 @@ resource "libvirt_domain" "windows" {
   graphics {
     type           = "vnc"
     listen_type    = "address"
-    listen_address = "127.0.0.1" 
+    listen_address = "0.0.0.0"
     autoport       = true
   }
 
