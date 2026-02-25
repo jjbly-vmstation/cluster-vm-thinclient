@@ -156,7 +156,8 @@
       register: ovmf_stats
       loop:
         - /usr/share/edk2/ovmf/OVMF_CODE.secboot.fd
-        - /usr/share/edk2/ovmf/OVMF_VARS.secboot.fd
+        - /usr/share/edk2/ovmf/OVMF_VARS.fd  # Changed from .secboot.fd to .fd
+
 
     - name: Fail if OVMF files are missing
       fail:
@@ -195,7 +196,11 @@
       when: ovmf_code_find.matched == 0 or ovmf_vars_find.matched == 0
 
     - name: Run terraform apply (auto-approve)
-      command: "{{ terraform_bin }} apply -auto-approve -var='libvirt_uri=qemu:///system' -var='firmware_path={{ ovmf_code_find.files[0].path }}' -var='nvram_template={{ ovmf_vars_find.files[0].path }}'"
+      command: >
+        {{ terraform_bin }} apply -auto-approve 
+        -var='libvirt_uri=qemu:///system' 
+        -var='firmware_path=/usr/share/edk2/ovmf/OVMF_CODE.secboot.fd' 
+        -var='nvram_template=/usr/share/edk2/ovmf/OVMF_VARS.fd'
       args:
         chdir: "{{ terraform_dir }}"
       become_user: vmadmin
