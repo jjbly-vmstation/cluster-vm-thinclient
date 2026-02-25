@@ -90,7 +90,7 @@ resource "libvirt_domain" "windows" {
 
   nvram {
     file     = "/home/vmadmin/disks/windows-vars.fd"
-    template = "/usr/share/edk2/ovmf/OVMF_CODE.fd"
+    template = "/usr/share/edk2/ovmf/OVMF_CODE.secboot.fd"
   }
 
   # Windows 11 requires TPM 2.0
