@@ -67,5 +67,5 @@ variable "firmware_path" {
 variable "nvram_template" {
   description = "Path to OVMF variables template"
   type        = string
-  default     = "/usr/share/edk2/ovmf/OVMF_VARS.fd"
+  default     = "/usr/share/edk2/ovmf/OVMF_VARS.secboot.fd"
 }

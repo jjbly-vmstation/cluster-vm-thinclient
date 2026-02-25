@@ -153,18 +153,18 @@
     - name: Find OVMF Secure Boot firmware
       find:
         paths: 
-          - /usr/share  # Broaden search to ensure it catches the edk2 subfolders
+          - /usr/share/edk2/ovmf  # ONLY search the actual physical path
         patterns: 
           - "OVMF_CODE.secboot.fd"
-        file_type: any  # Crucial for catching symlinks
-        follow: true    # Resolves symlinks to absolute physical paths
+        file_type: any
+        follow: true            # Resolves symlinks to absolute physical paths
         recurse: yes
       register: ovmf_code_find
 
     - name: Find OVMF VARS template
       find:
         paths: 
-          - /usr/share
+          - /usr/share/edk2/ovmf  # ONLY search the actual physical path
         patterns: 
           - "OVMF_VARS.secboot.fd"
         file_type: any
@@ -175,7 +175,7 @@
 
 
 
-      
+
     - name: Get edk2-ovmf package file list for debugging
       command: rpm -ql edk2-ovmf
       register: edk2_files
