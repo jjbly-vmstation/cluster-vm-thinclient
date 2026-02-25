@@ -65,21 +65,25 @@ resource "libvirt_domain" "windows" {
   # OS disk (virtio)
   disk {
     volume_id = libvirt_volume.windows_os.id
+    bus       = "virtio"
   }
 
   # Data disk (virtio)
   disk {
     volume_id = libvirt_volume.windows_data.id
+    bus       = "virtio"
   }
 
   # Windows installation ISO — SATA CD-ROM
   disk {
     file = var.iso_path
+    bus  = "sata"
   }
 
   # VirtIO drivers ISO — second SATA CD-ROM
   disk {
     file = "/home/vmadmin/iso/virtio-win.iso"
+    bus  = "sata"
   }
 
 
