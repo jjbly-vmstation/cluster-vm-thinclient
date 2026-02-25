@@ -178,6 +178,10 @@
         # Prefer the secboot-specific vars file if it exists
         - /usr/share/edk2/ovmf/OVMF_VARS.secboot.fd
         - /usr/share/OVMF/OVMF_VARS.secboot.fd
+        - /usr/share/edk2/ovmf/OVMF_VARS_4M.secboot.fd
+        - /usr/share/OVMF/OVMF_VARS_4M.secboot.fd
+        - /usr/share/edk2/ovmf/OVMF_VARS_4M.fd
+        - /usr/share/OVMF/OVMF_VARS_4M.fd
         # Fall back to the generic vars template
         - /usr/share/edk2/ovmf/OVMF_VARS.fd
         - /usr/share/OVMF/OVMF_VARS.fd
@@ -186,6 +190,17 @@
     - name: Set OVMF VARS path fact
       set_fact:
         ovmf_vars_src_path: "{{ (ovmf_vars_stat_results.results | selectattr('stat.exists') | map(attribute='item') | first) | default('') }}"
+
+    - name: Debug OVMF directory contents if VARS not found
+      command: ls -la /usr/share/edk2/ovmf/
+      register: ovmf_dir_listing
+      when: ovmf_vars_src_path == ''
+      ignore_errors: yes
+
+    - name: Display OVMF directory contents
+      debug:
+        var: ovmf_dir_listing.stdout_lines
+      when: ovmf_vars_src_path == ''
 
     - name: Fail if OVMF files are not found
       fail:
