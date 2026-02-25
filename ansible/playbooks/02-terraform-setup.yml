@@ -195,7 +195,7 @@
       command: ls -la /usr/share/edk2/ovmf/
       register: ovmf_dir_listing
       when: ovmf_vars_src_path == ''
-      ignore_errors: yes
+      ignore_errors: true
 
     - name: Display OVMF directory contents
       debug:
