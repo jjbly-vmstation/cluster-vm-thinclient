@@ -170,8 +170,8 @@
           - /boot/efi/EFI/redhat
           - /boot/efi/EFI/centos
         patterns: 
-          - "OVMF_VARS.fd"
-          - "OVMF_VARS_4M.fd"
+          - "OVMF_VARS.secboot.fd"     # <-- Updated
+          - "OVMF_VARS_4M.secboot.fd"  # <-- Updated
         recurse: yes
       register: ovmf_vars_find
 

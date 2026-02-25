@@ -112,16 +112,18 @@ resource "libvirt_domain" "windows" {
     type = "virtio"
   }
 
-  xml {
+xml {
     xslt = <<EOF
 <?xml version="1.0" ?>
 <xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
   <xsl:output omit-xml-declaration="yes" indent="yes"/>
+  
   <xsl:template match="node()|@*">
     <xsl:copy>
       <xsl:apply-templates select="node()|@*"/>
     </xsl:copy>
   </xsl:template>
+
   <xsl:template match="/domain/os/loader">
     <xsl:copy>
       <xsl:apply-templates select="@*"/>
@@ -130,6 +132,14 @@ resource "libvirt_domain" "windows" {
       <xsl:apply-templates select="node()"/>
     </xsl:copy>
   </xsl:template>
+
+  <xsl:template match="/domain/features">
+    <xsl:copy>
+      <xsl:apply-templates select="node()|@*"/>
+      <smm state="on"/>
+    </xsl:copy>
+  </xsl:template>
+
   <xsl:template match="/domain/devices/disk[@device='cdrom']/target/@bus">
     <xsl:attribute name="bus">sata</xsl:attribute>
   </xsl:template>
