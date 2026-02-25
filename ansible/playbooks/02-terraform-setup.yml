@@ -166,7 +166,7 @@
     - name: Set found OVMF file paths
       set_fact:
         ovmf_code_src_path: "{{ (ovmf_files_found.files | selectattr('path', 'search', 'OVMF_CODE.secboot.fd') | map(attribute='path') | first) | default(ovmf_files_found.files | selectattr('path', 'search', 'OVMF_CODE.fd') | map(attribute='path') | first) | default('') }}"
-        ovmf_vars_src_path: "{{ (ovmf_files_found.files | selectattr('path', 'search', 'OVMF_VARS.fd') | map(attribute='path') | first) | default(ovmf_files_found.files | selectattr('path', 'search', 'OVMF_VARS.secboot.fd') | map(attribute='path') | first) | default('') }}"
+        ovmf_vars_src_path: "{{ (ovmf_files_found.files | selectattr('path', 'search', 'OVMF_VARS.secboot.fd') | map(attribute='path') | first) | default(ovmf_files_found.files | selectattr('path', 'search', 'OVMF_VARS.fd') | map(attribute='path') | first) | default('') }}"
 
     - name: Fail if OVMF files are not found
       fail:
