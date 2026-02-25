@@ -150,27 +150,29 @@
           - "Version: {{ tf_version.stdout_lines }}"
     
     
-    - name: Find OVMF Secure Boot firmware
-      find:
-        paths: 
-          - /usr/share/edk2/ovmf  # Use the direct physical path confirmed by your debug output
-        patterns: 
-          - "OVMF_CODE.secboot.fd"
-        file_type: any  # Important to catch potential symlinks
-        follow: true    # Resolves to absolute physical paths
-        recurse: no     # No need to recurse if we are in the correct directory
-      register: ovmf_code_find
+    - name: Verify OVMF Secure Boot files exist
+      stat:
+        path: "{{ item }}"
+      register: ovmf_stats
+      loop:
+        - /usr/share/edk2/ovmf/OVMF_CODE.secboot.fd
+        - /usr/share/edk2/ovmf/OVMF_VARS.secboot.fd
 
-    - name: Find OVMF VARS template
-      find:
-        paths: 
-          - /usr/share/edk2/ovmf
-        patterns: 
-          - "OVMF_VARS.secboot.fd"
-        file_type: any
-        follow: true
-        recurse: no
-      register: ovmf_vars_find
+    - name: Fail if OVMF files are missing
+      fail:
+        msg: "Required OVMF file missing: {{ item.item }}"
+      when: not item.stat.exists
+      loop: "{{ ovmf_stats.results }}"
+
+    - name: Run terraform apply (auto-approve)
+      command: >
+        {{ terraform_bin }} apply -auto-approve 
+        -var='libvirt_uri=qemu:///system' 
+        -var='firmware_path=/usr/share/edk2/ovmf/OVMF_CODE.secboot.fd' 
+        -var='nvram_template=/usr/share/edk2/ovmf/OVMF_VARS.secboot.fd'
+      args:
+        chdir: "{{ terraform_dir }}"
+      become_user: vmadmin
 
 
 
