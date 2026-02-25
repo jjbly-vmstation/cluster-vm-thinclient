@@ -96,19 +96,21 @@
         group: vmadmin
         recurse: yes
 
-    - name: Check if VirtIO ISO already exists on homelab
-      stat:
-        path: "/home/vmadmin/iso/virtio-win.iso"
-      register: homelab_iso
+    - name: Ensure ISO directory exists
+      file:
+        path: "/home/vmadmin/iso"
+        state: directory
+        owner: vmadmin
+        group: vmadmin
+        mode: '0755'
 
-    - name: Copy VirtIO drivers ISO to homelab (only if changed)
-      copy:
-        src: "/tmp/virtio-win.iso"
-        dest: "/home/vmadmin/iso/virtio-win.iso"
+    - name: Download VirtIO drivers ISO (stable)
+      get_url:
+        url: "https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso"
+        path: "/home/vmadmin/iso/virtio-win.iso"
         owner: vmadmin
         group: vmadmin
         mode: '0644'
-      when: not homelab_iso.stat.exists
 
     - name: Forcefully stop any lingering VM domain
       command: "virsh destroy {{ vm_name }}"
@@ -152,15 +154,15 @@
     - name: Find OVMF firmware files on host system
       find:
         paths: /usr/share
-        patterns: ["OVMF_CODE.secboot.fd", "OVMF_VARS.fd"]
+        patterns: ["OVMF_CODE*.fd", "OVMF_VARS*.fd"]
         file_type: file
-        follow: yes
+        recurse: yes
       register: ovmf_files_found
 
     - name: Set found OVMF file paths
       set_fact:
-        ovmf_code_src_path: "{{ (ovmf_files_found.files | selectattr('path', 'match', '.*OVMF_CODE.secboot.fd') | map(attribute='path') | first) | default('') }}"
-        ovmf_vars_src_path: "{{ (ovmf_files_found.files | selectattr('path', 'match', '.*OVMF_VARS.fd') | map(attribute='path') | first) | default('') }}"
+        ovmf_code_src_path: "{{ (ovmf_files_found.files | selectattr('path', 'search', 'OVMF_CODE.secboot.fd') | map(attribute='path') | first) | default(ovmf_files_found.files | selectattr('path', 'search', 'OVMF_CODE.fd') | map(attribute='path') | first) | default('') }}"
+        ovmf_vars_src_path: "{{ (ovmf_files_found.files | selectattr('path', 'search', 'OVMF_VARS.fd') | map(attribute='path') | first) | default(ovmf_files_found.files | selectattr('path', 'search', 'OVMF_VARS.secboot.fd') | map(attribute='path') | first) | default('') }}"
 
     - name: Fail if OVMF files are not found
       fail:

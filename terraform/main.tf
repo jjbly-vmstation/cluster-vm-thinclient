@@ -112,7 +112,13 @@ resource "libvirt_domain" "windows" {
     type = "virtio"
   }
 
-xml {
+  # USB Tablet for proper mouse alignment in VNC
+  input {
+    type = "tablet"
+    bus  = "usb"
+  }
+
+  xml {
     xslt = <<EOF
 <?xml version="1.0" ?>
 <xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
