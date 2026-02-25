@@ -158,6 +158,7 @@
     - name: Check for preferred OVMF CODE file
       stat:
         path: "{{ item }}"
+        follow: yes
       loop:
         - /usr/share/edk2/ovmf/OVMF_CODE.secboot.fd
         - /usr/share/OVMF/OVMF_CODE.secboot.fd
@@ -172,6 +173,7 @@
     - name: Check for preferred OVMF VARS file
       stat:
         path: "{{ item }}"
+        follow: yes
       loop:
         # Prefer the secboot-specific vars file if it exists
         - /usr/share/edk2/ovmf/OVMF_VARS.secboot.fd
