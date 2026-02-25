@@ -8,6 +8,7 @@
     terraform_dir: "/home/vmadmin/vmstation-org/cluster-vm-thinclient/terraform"
     terraform_src_dir: "{{ playbook_dir }}/../../terraform"
     force_vm_recreate: false # Set to true to force VM destruction and recreation
+    vm_name: "windows-thinclient"
 
   tasks:
     - name: Ensure required packages are installed (Debian/Ubuntu)
@@ -109,16 +110,19 @@
         mode: '0644'
       when: not homelab_iso.stat.exists
 
-    - name: Taint the VM resource to force recreation
-      command: "{{ terraform_bin }} taint libvirt_domain.windows"
-      register: taint_result
-      args:
-        chdir: "{{ terraform_dir }}"
-      become_user: vmadmin
+    - name: Forcefully stop any lingering VM domain
+      command: "virsh destroy {{ vm_name }}"
+      register: virsh_destroy
+      changed_when: virsh_destroy.rc == 0
+      failed_when: false # Ignore errors if VM doesn't exist or isn't running
       when: force_vm_recreate
-      failed_when: false # Ignore errors, as the resource might not exist in the state yet.
-      changed_when: taint_result.rc == 0 # Only report a change if taint was successful.
 
+    - name: Undefine any lingering VM and delete NVRAM to ensure clean state
+      command: "virsh undefine {{ vm_name }} --nvram"
+      register: virsh_undefine
+      changed_when: virsh_undefine.rc == 0
+      failed_when: false # Ignore errors if VM doesn't exist
+      when: force_vm_recreate
     - name: Run terraform init
       command: "{{ terraform_bin }} init -upgrade -reconfigure"
       args:
