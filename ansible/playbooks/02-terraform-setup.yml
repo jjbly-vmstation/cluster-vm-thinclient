@@ -149,26 +149,42 @@
           - "Providers: {{ tf_providers.stdout_lines }}"
           - "Version: {{ tf_version.stdout_lines }}"
     
-    - name: Verify OVMF Secure Boot files exist
+    - name: Check for OVMF Code file
+      stat:
+        path: /usr/share/edk2/ovmf/OVMF_CODE.secboot.fd
+      register: ovmf_code_stat
+
+    - name: Fail if OVMF Code is missing
+      fail:
+        msg: "Required OVMF Code file missing: /usr/share/edk2/ovmf/OVMF_CODE.secboot.fd"
+      when: not ovmf_code_stat.stat.exists
+
+    - name: Check for OVMF Variables Template candidates
       stat:
         path: "{{ item }}"
-      register: ovmf_stats
+      register: ovmf_vars_check
       loop:
-        - /usr/share/edk2/ovmf/OVMF_CODE.secboot.fd
+        - /usr/share/edk2/ovmf/OVMF_VARS.secboot.fd
         - /usr/share/edk2/ovmf/OVMF_VARS.fd
+        - /usr/share/edk2/ovmf/OVMF_VARS.ms.fd
+        - /usr/share/OVMF/OVMF_VARS.secboot.fd
+        - /usr/share/OVMF/OVMF_VARS.fd
 
-    - name: Fail if OVMF files are missing
+    - name: Select first available OVMF Variables Template
+      set_fact:
+        ovmf_vars_path: "{{ ovmf_vars_check.results | selectattr('stat.exists') | map(attribute='item') | first | default('') }}"
+
+    - name: Fail if no OVMF Variables Template found
       fail:
-        msg: "Required OVMF file missing: {{ item.item }}"
-      when: not item.stat.exists
-      loop: "{{ ovmf_stats.results }}"
+        msg: "Could not find a valid OVMF Variables Template. Checked standard RHEL paths."
+      when: ovmf_vars_path == ''
 
     - name: Run terraform apply (auto-approve)
       command: >
         {{ terraform_bin }} apply -auto-approve 
         -var='libvirt_uri=qemu:///system' 
         -var='firmware_path=/usr/share/edk2/ovmf/OVMF_CODE.secboot.fd' 
-        -var='nvram_template=/usr/share/edk2/ovmf/OVMF_VARS.fd'
+        -var='nvram_template={{ ovmf_vars_path }}'
       args:
         chdir: "{{ terraform_dir }}"
       become_user: vmadmin
