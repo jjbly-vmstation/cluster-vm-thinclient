@@ -155,28 +155,40 @@
           - "Providers: {{ tf_providers.stdout_lines }}"
           - "Version: {{ tf_version.stdout_lines }}"
 
-    - name: Find OVMF firmware files on host system
-      find:
-        paths: /usr/share
-        patterns: ["*OVMF_CODE*.fd", "*OVMF_VARS*.fd"]
-        file_type: file
-        follow: yes
-        recurse: yes
-      register: ovmf_files_found
+    - name: Check for preferred OVMF CODE file
+      stat:
+        path: "{{ item }}"
+      loop:
+        - /usr/share/edk2/ovmf/OVMF_CODE.secboot.fd
+        - /usr/share/OVMF/OVMF_CODE.secboot.fd
+        - /usr/share/edk2/ovmf/OVMF_CODE.fd
+        - /usr/share/OVMF/OVMF_CODE.fd
+      register: ovmf_code_stat_results
 
-    - name: Debug found OVMF files
-      debug:
-        msg: "Found files: {{ ovmf_files_found.files | map(attribute='path') | list }}"
-
-    - name: Set found OVMF file paths
+    - name: Set OVMF CODE path fact
       set_fact:
-        ovmf_code_src_path: "{{ (ovmf_files_found.files | selectattr('path', 'search', '(?i)OVMF_CODE.*secboot.*\\.fd') | map(attribute='path') | first) | default(ovmf_files_found.files | selectattr('path', 'search', '(?i)OVMF_CODE.*\\.fd') | map(attribute='path') | first) | default('') }}"
-        ovmf_vars_src_path: "{{ (ovmf_files_found.files | selectattr('path', 'search', '(?i)OVMF_VARS.*secboot.*\\.fd') | map(attribute='path') | first) | default(ovmf_files_found.files | selectattr('path', 'search', '(?i)OVMF_VARS.*\\.fd') | map(attribute='path') | first) | default('') }}"
+        ovmf_code_src_path: "{{ (ovmf_code_stat_results.results | selectattr('stat.exists') | map(attribute='item') | first) | default('') }}"
+
+    - name: Check for preferred OVMF VARS file
+      stat:
+        path: "{{ item }}"
+      loop:
+        # Prefer the secboot-specific vars file if it exists
+        - /usr/share/edk2/ovmf/OVMF_VARS.secboot.fd
+        - /usr/share/OVMF/OVMF_VARS.secboot.fd
+        # Fall back to the generic vars template
+        - /usr/share/edk2/ovmf/OVMF_VARS.fd
+        - /usr/share/OVMF/OVMF_VARS.fd
+      register: ovmf_vars_stat_results
+
+    - name: Set OVMF VARS path fact
+      set_fact:
+        ovmf_vars_src_path: "{{ (ovmf_vars_stat_results.results | selectattr('stat.exists') | map(attribute='item') | first) | default('') }}"
 
     - name: Fail if OVMF files are not found
       fail:
         msg: |
-          Could not find required OVMF files (OVMF_CODE.secboot.fd, OVMF_VARS.fd) in /usr/share.
+          Could not find required OVMF files.
           Please ensure the 'edk2-ovmf' package is installed and provides these files.
           Debug Info:
           OVMF_CODE.secboot.fd found at: {{ ovmf_code_src_path }}
