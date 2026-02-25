@@ -106,18 +106,11 @@
         mode: '0644'
       when: not homelab_iso.stat.exists
 
-    - name: Forcefully stop the existing VM domain to ensure recreation
-      command: "virsh destroy windows-thinclient"
-      register: virsh_destroy
-      changed_when: virsh_destroy.rc == 0
-      failed_when: false # Ignore errors if VM doesn't exist or isn't running
-      when: force_vm_recreate
-
-    - name: Undefine the VM and delete NVRAM to ensure clean apply
-      command: "virsh undefine windows-thinclient --nvram"
-      register: virsh_undefine
-      changed_when: virsh_undefine.rc == 0
-      failed_when: false # Ignore errors if VM doesn't exist
+    - name: Taint the VM resource to force recreation
+      command: "{{ terraform_bin }} taint libvirt_domain.windows"
+      args:
+        chdir: "{{ terraform_dir }}"
+      become_user: vmadmin
       when: force_vm_recreate
 
     - name: Run terraform init
