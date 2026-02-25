@@ -182,6 +182,25 @@
         msg: "Could not find a valid OVMF Variables Template. Checked standard RHEL paths."
       when: ovmf_vars_path == ''
 
+    - name: Ensure semanage is available for permanent SELinux changes
+      yum:
+        name: policycoreutils-python-utils
+        state: present
+      when: ansible_os_family == "RedHat"
+
+    - name: Set permanent SELinux context for OVMF directory
+      command: semanage fcontext -a -t svirt_image_t "/usr/share/edk2/ovmf(/.*)?"
+      register: semanage_result
+      changed_when: "'already defined' not in semanage_result.stderr"
+      failed_when: semanage_result.rc != 0 and 'already defined' not in semanage_result.stderr
+      when: ansible_os_family == "RedHat"
+
+    - name: Apply SELinux context to OVMF directory
+      command: restorecon -Rv /usr/share/edk2/ovmf
+      register: restorecon_result
+      changed_when: "'Relabeled' in restorecon_result.stdout"
+      when: ansible_os_family == "RedHat"
+
     - name: Run terraform apply (auto-approve)
       command: >
         {{ terraform_bin }} apply -auto-approve 
