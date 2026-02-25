@@ -34,6 +34,7 @@
           - genisoimage
           - swtpm
           - swtpm-tools
+          - edk2-ovmf
         state: present
       when: ansible_os_family == "RedHat"
 
