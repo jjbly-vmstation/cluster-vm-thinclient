@@ -105,9 +105,13 @@
         mode: '0755'
 
     - name: Download VirtIO drivers ISO (stable)
-      get_url:
-        url: "https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso"
-        dest: "/home/vmadmin/iso/virtio-win.iso"
+      command: wget -O /home/vmadmin/iso/virtio-win.iso https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso
+      args:
+        creates: /home/vmadmin/iso/virtio-win.iso
+
+    - name: Ensure VirtIO ISO permissions
+      file:
+        path: /home/vmadmin/iso/virtio-win.iso
         owner: vmadmin
         group: vmadmin
         mode: '0644'
