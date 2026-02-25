@@ -47,6 +47,7 @@ resource "libvirt_domain" "windows" {
   memory = var.memory_mb
   vcpu   = var.vcpus
   type   = "kvm"
+  machine = "q35"
 
   cpu {
     mode = "host-passthrough"

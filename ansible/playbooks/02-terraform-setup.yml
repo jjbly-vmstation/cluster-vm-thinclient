@@ -105,6 +105,11 @@
         mode: '0644'
       when: not homelab_iso.stat.exists
 
+    - name: Remove existing NVRAM to force regeneration with Secure Boot
+      file:
+        path: /home/vmadmin/disks/windows-vars.fd
+        state: absent
+
     - name: Run terraform init
       command: "{{ terraform_bin }} init -upgrade -reconfigure"
       args:
