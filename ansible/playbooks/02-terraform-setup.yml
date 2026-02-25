@@ -159,23 +159,21 @@
         msg: "Required OVMF Code file missing: /usr/share/edk2/ovmf/OVMF_CODE.secboot.fd"
       when: not ovmf_code_stat.stat.exists
 
-    - name: Detect OVMF Variables Template path (RedHat)
-      shell: "rpm -ql edk2-ovmf | grep '^/usr/share/edk2/ovmf/OVMF_VARS.*\\.fd$' | head -n 1"
-      register: ovmf_vars_rh
-      changed_when: false
-      failed_when: false
-      when: ansible_os_family == "RedHat"
+    - name: Set search path for OVMF
+      set_fact:
+        ovmf_search_dir: "{{ '/usr/share/edk2/ovmf' if ansible_os_family == 'RedHat' else '/usr/share/OVMF' }}"
 
-    - name: Detect OVMF Variables Template path (Debian)
-      shell: dpkg -L ovmf | grep -E 'OVMF_VARS.*\.fd$' | head -n 1
-      register: ovmf_vars_deb
-      changed_when: false
-      failed_when: false
-      when: ansible_os_family == "Debian"
+    - name: Find valid OVMF Variables Template
+      find:
+        paths: "{{ ovmf_search_dir }}"
+        patterns: ["OVMF_VARS.fd", "OVMF_VARS.secboot.fd", "OVMF_VARS.4m.fd"]
+        file_type: file
+        follow: yes
+      register: ovmf_vars_found
 
     - name: Set OVMF Variables Template path
       set_fact:
-        ovmf_vars_path: "{{ (ovmf_vars_rh.stdout | trim) if ansible_os_family == 'RedHat' else (ovmf_vars_deb.stdout | trim) | default('') }}"
+        ovmf_vars_path: "{{ (ovmf_vars_found.files | map(attribute='path') | list | sort | first) | default('') }}"
 
     - name: Fail if no OVMF Variables Template found
       fail:
@@ -189,14 +187,14 @@
       when: ansible_os_family == "RedHat"
 
     - name: Set permanent SELinux context for OVMF directory
-      command: semanage fcontext -a -t svirt_image_t "/usr/share/edk2/ovmf(/.*)?"
+      command: "semanage fcontext -a -t svirt_image_t '{{ ovmf_vars_path | dirname }}(/.*)?'"
       register: semanage_result
       changed_when: "'already defined' not in semanage_result.stderr"
       failed_when: semanage_result.rc != 0 and 'already defined' not in semanage_result.stderr
       when: ansible_os_family == "RedHat"
 
     - name: Apply SELinux context to OVMF directory
-      command: restorecon -Rv /usr/share/edk2/ovmf
+      command: "restorecon -Rv {{ ovmf_vars_path | dirname }}"
       register: restorecon_result
       changed_when: "'Relabeled' in restorecon_result.stdout"
       when: ansible_os_family == "RedHat"
