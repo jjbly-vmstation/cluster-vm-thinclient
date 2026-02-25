@@ -65,25 +65,21 @@ resource "libvirt_domain" "windows" {
   # OS disk (virtio)
   disk {
     volume_id = libvirt_volume.windows_os.id
-    bus       = "virtio"
   }
 
   # Data disk (virtio)
   disk {
     volume_id = libvirt_volume.windows_data.id
-    bus       = "virtio"
   }
 
   # Windows installation ISO — SATA CD-ROM
   disk {
     file = var.iso_path
-    bus  = "sata"
   }
 
   # VirtIO drivers ISO — second SATA CD-ROM
   disk {
     file = "/home/vmadmin/iso/virtio-win.iso"
-    bus  = "sata"
   }
 
 
@@ -113,5 +109,22 @@ resource "libvirt_domain" "windows" {
 
   video {
     type = "virtio"
+  }
+
+  xml {
+    xslt = <<EOF
+<?xml version="1.0" ?>
+<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+  <xsl:output omit-xml-declaration="yes" indent="yes"/>
+  <xsl:template match="node()|@*">
+    <xsl:copy>
+      <xsl:apply-templates select="node()|@*"/>
+    </xsl:copy>
+  </xsl:template>
+  <xsl:template match="/domain/devices/disk[@device='cdrom']/target/@bus">
+    <xsl:attribute name="bus">sata</xsl:attribute>
+  </xsl:template>
+</xsl:stylesheet>
+EOF
   }
 }
