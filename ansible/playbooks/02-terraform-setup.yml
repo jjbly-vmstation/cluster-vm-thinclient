@@ -185,6 +185,9 @@
         # Fall back to the generic vars template
         - /usr/share/edk2/ovmf/OVMF_VARS.fd
         - /usr/share/OVMF/OVMF_VARS.fd
+        # RHEL 10 / CentOS Stream 9+ specific
+        - /usr/share/edk2/ovmf/OVMF.qemuvars.fd
+        - /usr/share/OVMF/OVMF.qemuvars.fd
       register: ovmf_vars_stat_results
 
     - name: Set OVMF VARS path fact
