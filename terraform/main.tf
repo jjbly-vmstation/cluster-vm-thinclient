@@ -48,6 +48,7 @@ resource "libvirt_domain" "windows" {
   vcpu   = var.vcpus
   type   = "kvm"
   machine = "q35"
+  firmware = "/usr/share/edk2/ovmf/OVMF_CODE.secboot.fd"
 
   cpu {
     mode = "host-passthrough"
@@ -91,7 +92,7 @@ resource "libvirt_domain" "windows" {
 
   nvram {
     file     = "/home/vmadmin/disks/windows-vars.fd"
-    template = "/usr/share/edk2/ovmf/OVMF_CODE.secboot.fd"
+    template = "/usr/share/edk2/ovmf/OVMF_VARS.secboot.fd"
   }
 
   # Windows 11 requires TPM 2.0
@@ -119,6 +120,14 @@ resource "libvirt_domain" "windows" {
   <xsl:template match="node()|@*">
     <xsl:copy>
       <xsl:apply-templates select="node()|@*"/>
+    </xsl:copy>
+  </xsl:template>
+  <xsl:template match="/domain/os/loader">
+    <xsl:copy>
+      <xsl:apply-templates select="@*"/>
+      <xsl:attribute name="secure">yes</xsl:attribute>
+      <xsl:attribute name="type">pflash</xsl:attribute>
+      <xsl:apply-templates select="node()"/>
     </xsl:copy>
   </xsl:template>
   <xsl:template match="/domain/devices/disk[@device='cdrom']/target/@bus">

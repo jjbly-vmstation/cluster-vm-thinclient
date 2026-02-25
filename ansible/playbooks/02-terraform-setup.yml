@@ -32,6 +32,8 @@
           - unzip
           - wget
           - genisoimage
+          - swtpm
+          - swtpm-tools
         state: present
       when: ansible_os_family == "RedHat"
 
