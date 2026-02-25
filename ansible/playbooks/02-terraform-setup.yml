@@ -155,7 +155,7 @@
       register: ovmf_stats
       loop:
         - /usr/share/edk2/ovmf/OVMF_CODE.secboot.fd
-        - /usr/share/edk2/ovmf/OVMF_VARS.4m.fd
+        - /usr/share/edk2/ovmf/OVMF_VARS.secboot.fd
 
     - name: Fail if OVMF files are missing
       fail:
@@ -168,23 +168,7 @@
         {{ terraform_bin }} apply -auto-approve 
         -var='libvirt_uri=qemu:///system' 
         -var='firmware_path=/usr/share/edk2/ovmf/OVMF_CODE.secboot.fd' 
-        -var='nvram_template=/usr/share/edk2/ovmf/OVMF_VARS.4m.fd'
+        -var='nvram_template=/usr/share/edk2/ovmf/OVMF_VARS.secboot.fd'
       args:
         chdir: "{{ terraform_dir }}"
       become_user: vmadmin
-
-    - name: Get edk2-ovmf package file list for debugging
-      command: rpm -ql edk2-ovmf
-      register: edk2_files
-      changed_when: false
-      failed_when: false
-      when: (ovmf_code_find.matched == 0 or ovmf_vars_find.matched == 0) and ansible_os_family == "RedHat"
-
-    - name: Fail if OVMF files are missing
-      fail:
-        msg: |
-          Could not find OVMF firmware or variables template. Ensure 'edk2-ovmf' is installed.
-          Searched paths: /usr/share/edk2/ovmf, /usr/share/OVMF, /boot/efi/EFI/redhat, /boot/efi/EFI/centos
-          Debug info (files provided by edk2-ovmf package):
-          {{ edk2_files.stdout | default('(rpm command failed or package not installed)') }}
-      when: ovmf_code_find.matched == 0 or ovmf_vars_find.matched == 0
