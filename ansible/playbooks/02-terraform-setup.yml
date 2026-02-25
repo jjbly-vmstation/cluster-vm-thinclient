@@ -153,23 +153,23 @@
     - name: Find OVMF Secure Boot firmware
       find:
         paths: 
-          - /usr/share/edk2/ovmf  # ONLY search the actual physical path
+          - /usr/share/edk2/ovmf  # Use the direct physical path confirmed by your debug output
         patterns: 
           - "OVMF_CODE.secboot.fd"
-        file_type: any
-        follow: true            # Resolves symlinks to absolute physical paths
-        recurse: yes
+        file_type: any  # Important to catch potential symlinks
+        follow: true    # Resolves to absolute physical paths
+        recurse: no     # No need to recurse if we are in the correct directory
       register: ovmf_code_find
 
     - name: Find OVMF VARS template
       find:
         paths: 
-          - /usr/share/edk2/ovmf  # ONLY search the actual physical path
+          - /usr/share/edk2/ovmf
         patterns: 
           - "OVMF_VARS.secboot.fd"
         file_type: any
         follow: true
-        recurse: yes
+        recurse: no
       register: ovmf_vars_find
 
 
