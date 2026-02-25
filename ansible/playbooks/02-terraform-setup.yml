@@ -153,24 +153,22 @@
     - name: Find OVMF Secure Boot firmware
       find:
         paths: 
-          - /usr/share/edk2/ovmf
-          - /usr/share/OVMF
+          - /usr/share/edk2/ovmf  # Prioritize the actual RHEL path
         patterns: 
           - "OVMF_CODE.secboot.fd"
-        file_type: any  # Allows Ansible to see symlinks
-        follow: true    # Resolves the symlink to the actual path
+        file_type: any
+        follow: true            # This resolves symlinks to real paths
         recurse: yes
       register: ovmf_code_find
 
     - name: Find OVMF VARS template
       find:
         paths: 
-          - /usr/share/edk2/ovmf
-          - /usr/share/OVMF
+          - /usr/share/edk2/ovmf  # Prioritize the actual RHEL path
         patterns: 
-          - "OVMF_VARS.secboot.fd" # Specifically use the secboot version for Win11
-        file_type: any  # Allows Ansible to see symlinks
-        follow: true    # Resolves the symlink to the actual path
+          - "OVMF_VARS.secboot.fd"
+        file_type: any
+        follow: true            # This resolves symlinks to real paths
         recurse: yes
       register: ovmf_vars_find
 
