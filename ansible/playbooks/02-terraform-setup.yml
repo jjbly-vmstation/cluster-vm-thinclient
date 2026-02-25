@@ -160,7 +160,7 @@
       when: not ovmf_code_stat.stat.exists
 
     - name: Detect OVMF Variables Template path (RedHat)
-      shell: rpm -ql edk2-ovmf | grep -E 'OVMF_VARS.*\.fd$' | head -n 1
+      shell: "rpm -ql edk2-ovmf | grep '^/usr/share/edk2/ovmf/OVMF_VARS.*\\.fd$' | head -n 1"
       register: ovmf_vars_rh
       changed_when: false
       failed_when: false
