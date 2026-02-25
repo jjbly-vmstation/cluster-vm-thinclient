@@ -149,15 +149,13 @@
           - "Providers: {{ tf_providers.stdout_lines }}"
           - "Version: {{ tf_version.stdout_lines }}"
     
-    
     - name: Verify OVMF Secure Boot files exist
       stat:
         path: "{{ item }}"
       register: ovmf_stats
       loop:
-        - /usr/share/edk2/ovmf/OVMF_CODE.secboot.fd
-        - /usr/share/edk2/ovmf/OVMF_VARS.fd  # Changed from .secboot.fd to .fd
-
+        - /usr/share/OVMF/OVMF_CODE.secboot.fd
+        - /usr/share/OVMF/OVMF_VARS.fd
 
     - name: Fail if OVMF files are missing
       fail:
@@ -169,12 +167,11 @@
       command: >
         {{ terraform_bin }} apply -auto-approve 
         -var='libvirt_uri=qemu:///system' 
-        -var='firmware_path=/usr/share/edk2/ovmf/OVMF_CODE.secboot.fd' 
-        -var='nvram_template=/usr/share/edk2/ovmf/OVMF_VARS.secboot.fd'
+        -var='firmware_path=/usr/share/OVMF/OVMF_CODE.secboot.fd' 
+        -var='nvram_template=/usr/share/OVMF/OVMF_VARS.fd'
       args:
         chdir: "{{ terraform_dir }}"
       become_user: vmadmin
-
 
 
 
@@ -194,13 +191,3 @@
           Debug info (files provided by edk2-ovmf package):
           {{ edk2_files.stdout | default('(rpm command failed or package not installed)') }}
       when: ovmf_code_find.matched == 0 or ovmf_vars_find.matched == 0
-
-    - name: Run terraform apply (auto-approve)
-      command: >
-        {{ terraform_bin }} apply -auto-approve 
-        -var='libvirt_uri=qemu:///system' 
-        -var='firmware_path=/usr/share/edk2/ovmf/OVMF_CODE.secboot.fd' 
-        -var='nvram_template=/usr/share/edk2/ovmf/OVMF_VARS.fd'
-      args:
-        chdir: "{{ terraform_dir }}"
-      become_user: vmadmin
