@@ -159,20 +159,23 @@
         msg: "Required OVMF Code file missing: /usr/share/edk2/ovmf/OVMF_CODE.secboot.fd"
       when: not ovmf_code_stat.stat.exists
 
-    - name: Check for OVMF Variables Template candidates
-      stat:
-        path: "{{ item }}"
-      register: ovmf_vars_check
-      loop:
-        - /usr/share/edk2/ovmf/OVMF_VARS.secboot.fd
-        - /usr/share/edk2/ovmf/OVMF_VARS.fd
-        - /usr/share/edk2/ovmf/OVMF_VARS.ms.fd
-        - /usr/share/OVMF/OVMF_VARS.secboot.fd
-        - /usr/share/OVMF/OVMF_VARS.fd
+    - name: Detect OVMF Variables Template path (RedHat)
+      shell: rpm -ql edk2-ovmf | grep -E 'OVMF_VARS.*\.fd$' | head -n 1
+      register: ovmf_vars_rh
+      changed_when: false
+      failed_when: false
+      when: ansible_os_family == "RedHat"
 
-    - name: Select first available OVMF Variables Template
+    - name: Detect OVMF Variables Template path (Debian)
+      shell: dpkg -L ovmf | grep -E 'OVMF_VARS.*\.fd$' | head -n 1
+      register: ovmf_vars_deb
+      changed_when: false
+      failed_when: false
+      when: ansible_os_family == "Debian"
+
+    - name: Set OVMF Variables Template path
       set_fact:
-        ovmf_vars_path: "{{ ovmf_vars_check.results | selectattr('stat.exists') | map(attribute='item') | first | default('') }}"
+        ovmf_vars_path: "{{ (ovmf_vars_rh.stdout | trim) if ansible_os_family == 'RedHat' else (ovmf_vars_deb.stdout | trim) | default('') }}"
 
     - name: Fail if no OVMF Variables Template found
       fail:
