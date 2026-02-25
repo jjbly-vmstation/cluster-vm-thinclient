@@ -93,6 +93,10 @@ ansible-playbook -i /opt/vmstation-org/cluster-setup/ansible/inventory/hosts.yml
 # on the homelab node for initial setup
 sudo virsh console windows-thinclient
 
+# If you need to force a VM recreation (e.g., after changing machine type or NVRAM template),
+# run the playbook with -e "force_vm_recreate=true".
+# Example: ansible-playbook -i /opt/vmstation-org/cluster-setup/ansible/inventory/hosts.yml /opt/vmstation-org/cluster-vm-thinclient/ansible/playbooks/02-terraform-setup.yml -e "force_vm_recreate=true"
+
 # Needed to add firewalls to kubernetes zone as 192.168.4.0/22
 sudo firewall-cmd --permanent --zone=kubernetes --add-port=5900-5905/tcp
 sudo firewall-cmd --reload

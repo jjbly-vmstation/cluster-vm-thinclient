@@ -7,6 +7,7 @@
     terraform_bin: "/usr/local/bin/terraform"
     terraform_dir: "/home/vmadmin/vmstation-org/cluster-vm-thinclient/terraform"
     terraform_src_dir: "{{ playbook_dir }}/../../terraform"
+    force_vm_recreate: false # Set to true to force VM destruction and recreation
 
   tasks:
     - name: Ensure required packages are installed (Debian/Ubuntu)
@@ -105,10 +106,19 @@
         mode: '0644'
       when: not homelab_iso.stat.exists
 
-    - name: Remove existing NVRAM to force regeneration with Secure Boot
-      file:
-        path: /home/vmadmin/disks/windows-vars.fd
-        state: absent
+    - name: Forcefully stop the existing VM domain to ensure recreation
+      command: "virsh destroy windows-thinclient"
+      register: virsh_destroy
+      changed_when: virsh_destroy.rc == 0
+      failed_when: false # Ignore errors if VM doesn't exist or isn't running
+      when: force_vm_recreate
+
+    - name: Undefine the VM and delete NVRAM to ensure clean apply
+      command: "virsh undefine windows-thinclient --nvram"
+      register: virsh_undefine
+      changed_when: virsh_undefine.rc == 0
+      failed_when: false # Ignore errors if VM doesn't exist
+      when: force_vm_recreate
 
     - name: Run terraform init
       command: "{{ terraform_bin }} init -upgrade -reconfigure"
