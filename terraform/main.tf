@@ -124,13 +124,6 @@ resource "libvirt_domain" "windows" {
     </xsl:copy>
   </xsl:template>
 
-  <xsl:template match="/domain/os">
-    <xsl:copy>
-      <xsl:apply-templates select="node()|@*"/>
-      <bootmenu enable='yes' timeout='5000'/>
-    </xsl:copy>
-  </xsl:template>
-
   <xsl:template match="/domain/os/loader">
     <xsl:copy>
       <xsl:apply-templates select="@*"/>
@@ -140,14 +133,19 @@ resource "libvirt_domain" "windows" {
     </xsl:copy>
   </xsl:template>
 
+  <xsl:template match="/domain/os">
+    <xsl:copy>
+      <xsl:apply-templates select="node()|@*"/>
+      <bootmenu enable='yes' timeout='5000'/>
+    </xsl:copy>
+  </xsl:template>
+
   <xsl:template match="/domain/features">
     <xsl:copy>
       <xsl:apply-templates select="node()|@*"/>
       <smm state="on"/>
     </xsl:copy>
   </xsl:template>
-
-
 
   <xsl:template match="/domain/devices/disk[@device='cdrom']/target">
     <xsl:copy>
@@ -165,4 +163,3 @@ resource "libvirt_domain" "windows" {
 </xsl:stylesheet>
 EOF
   }
-}
