@@ -6,7 +6,7 @@
 # If provider errors occur, run: terraform init -upgrade
 
 terraform {
-  required_version = ">= 1.10.5"
+  required_version = ">= 1.5.0"
   required_providers {
     libvirt = {
       source  = "dmacvicar/libvirt"
