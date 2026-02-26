@@ -112,16 +112,13 @@ resource "libvirt_domain" "windows" {
     type = "vga"
   }
 
-  xml {
+xml {
     xslt = <<EOF
 <?xml version="1.0" ?>
 <xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
   <xsl:output omit-xml-declaration="yes" indent="yes"/>
-  
   <xsl:template match="node()|@*">
-    <xsl:copy>
-      <xsl:apply-templates select="node()|@*"/>
-    </xsl:copy>
+    <xsl:copy><xsl:apply-templates select="node()|@*"/></xsl:copy>
   </xsl:template>
 
   <xsl:template match="/domain/os/loader">
@@ -133,17 +130,17 @@ resource "libvirt_domain" "windows" {
     </xsl:copy>
   </xsl:template>
 
-  <xsl:template match="/domain/os">
-    <xsl:copy>
-      <xsl:apply-templates select="node()|@*"/>
-      <bootmenu enable='yes' timeout='5000'/>
-    </xsl:copy>
-  </xsl:template>
-
   <xsl:template match="/domain/features">
     <xsl:copy>
       <xsl:apply-templates select="node()|@*"/>
       <smm state="on"/>
+    </xsl:copy>
+  </xsl:template>
+
+  <xsl:template match="/domain/os">
+    <xsl:copy>
+      <xsl:apply-templates select="node()|@*"/>
+      <bootmenu enable='yes' timeout='5000'/>
     </xsl:copy>
   </xsl:template>
 
@@ -153,14 +150,9 @@ resource "libvirt_domain" "windows" {
       <xsl:attribute name="bus">sata</xsl:attribute>
     </xsl:copy>
   </xsl:template>
-
-  <xsl:template match="/domain/devices">
-    <xsl:copy>
-      <xsl:apply-templates select="node()|@*"/>
-      <input type="tablet" bus="usb"/>
-    </xsl:copy>
-  </xsl:template>
 </xsl:stylesheet>
 EOF
   }
+
+  
 }
