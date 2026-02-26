@@ -19,7 +19,7 @@ provider "libvirt" {
   uri = var.libvirt_uri
 }
 
-# OS disk (Windows + activation) - empty qcow2 for fresh install
+# OS disk
 resource "libvirt_volume" "windows_os" {
   name   = "windows-os.qcow2"
   pool   = var.pool_name
@@ -30,7 +30,7 @@ resource "libvirt_volume" "windows_os" {
   }
 }
 
-# Data disk (persistent user data)
+# Data disk
 resource "libvirt_volume" "windows_data" {
   name   = "windows-data.qcow2"
   pool   = var.pool_name
@@ -43,10 +43,10 @@ resource "libvirt_volume" "windows_data" {
 
 # Windows VM
 resource "libvirt_domain" "windows" {
-  name   = var.vm_name
-  memory = var.memory_mb
-  vcpu   = var.vcpus
-  type   = "kvm"
+  name    = var.vm_name
+  memory  = var.memory_mb
+  vcpu    = var.vcpus
+  type    = "kvm"
   machine = "q35"
   firmware = var.firmware_path
 
