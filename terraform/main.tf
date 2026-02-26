@@ -140,13 +140,6 @@ resource "libvirt_domain" "windows" {
     </xsl:copy>
   </xsl:template>
 
-  <xsl:template match="/domain/devices/video/model">
-    <xsl:copy>
-      <xsl:apply-templates select="@*"/>
-      <xsl:attribute name="vram">65536</xsl:attribute>
-      <xsl:attribute name="vgamem">65536</xsl:attribute>
-    </xsl:copy>
-  </xsl:template>
 
   <xsl:template match="/domain/devices/disk[@device='cdrom']/target/@bus">
     <xsl:attribute name="bus">sata</xsl:attribute>
