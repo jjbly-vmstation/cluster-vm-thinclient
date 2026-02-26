@@ -107,9 +107,18 @@ resource "libvirt_domain" "windows" {
     listen_address = "0.0.0.0" # Listen on all interfaces
     autoport       = true
   }
-
+  
+  # Change from vga to virtio
   video {
-    type = "vga"
+    type = "virtio"
+  }
+
+  # Add this features block directly if not already there, 
+  # or ensure your XSLT is actually placing it correctly.
+  features {
+    smm {
+      state = "on"
+    }
   }
 
 xml {
@@ -154,5 +163,5 @@ xml {
 EOF
   }
 
-  
+
 }
