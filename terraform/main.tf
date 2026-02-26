@@ -109,7 +109,7 @@ resource "libvirt_domain" "windows" {
   }
 
   video {
-    type = "virtio"
+    type = "vga"
   }
 
   xml {
@@ -137,6 +137,14 @@ resource "libvirt_domain" "windows" {
     <xsl:copy>
       <xsl:apply-templates select="node()|@*"/>
       <smm state="on"/>
+    </xsl:copy>
+  </xsl:template>
+
+  <xsl:template match="/domain/devices/video/model">
+    <xsl:copy>
+      <xsl:apply-templates select="@*"/>
+      <xsl:attribute name="vram">65536</xsl:attribute>
+      <xsl:attribute name="vgamem">65536</xsl:attribute>
     </xsl:copy>
   </xsl:template>
 
