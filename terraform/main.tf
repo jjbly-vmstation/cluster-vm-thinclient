@@ -59,28 +59,28 @@ resource "libvirt_domain" "windows" {
     network_name = var.network_name
     mac          = var.mac_address
   }
-  boot_device {
-    dev = ["cdrom", "hd"]
-  }
 
-  # OS disk (virtio)
+
+  # 1. Windows Installation ISO (BOOT FIRST)
   disk {
-    volume_id = libvirt_volume.windows_os.id
+    file       = "/home/vmadmin/iso/en-us_windows_11_business_editions_version_25h2_updated_feb_2026_x64_dvd_9271bf68.iso"
+    boot_order = "1"
   }
 
-  # Data disk (virtio)
+  # 2. OS Disk (BOOT SECOND)
   disk {
-    volume_id = libvirt_volume.windows_data.id
+    volume_id  = libvirt_volume.windows_os.id
+    boot_order = "2"
   }
 
-  # Windows installation ISO — SATA CD-ROM
-  disk {
-    file = var.iso_path
-  }
-
-  # VirtIO drivers ISO — second SATA CD-ROM
+  # 3. VirtIO Drivers ISO (Used during install, not for booting)
   disk {
     file = "/home/vmadmin/iso/virtio-win.iso"
+  }
+
+  # 4. Data Disk
+  disk {
+    volume_id = libvirt_volume.windows_data.id
   }
 
 
@@ -118,6 +118,7 @@ xml {
 <?xml version="1.0" ?>
 <xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
   <xsl:output omit-xml-declaration="yes" indent="yes"/>
+
   <xsl:template match="node()|@*">
     <xsl:copy><xsl:apply-templates select="node()|@*"/></xsl:copy>
   </xsl:template>
@@ -153,7 +154,7 @@ xml {
   </xsl:template>
 </xsl:stylesheet>
 EOF
-  }
+}
 
 
 }
