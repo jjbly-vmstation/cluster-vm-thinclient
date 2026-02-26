@@ -113,14 +113,6 @@ resource "libvirt_domain" "windows" {
     type = "virtio"
   }
 
-  # Add this features block directly if not already there, 
-  # or ensure your XSLT is actually placing it correctly.
-  features {
-    smm {
-      state = "on"
-    }
-  }
-
 xml {
     xslt = <<EOF
 <?xml version="1.0" ?>
