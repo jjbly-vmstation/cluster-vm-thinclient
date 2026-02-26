@@ -61,28 +61,23 @@ resource "libvirt_domain" "windows" {
   }
 
 
-  # 1. Windows Installation ISO (BOOT FIRST)
+  # 1. Windows Installer ISO
   disk {
     file       = "/home/vmadmin/iso/en-us_windows_11_business_editions_version_25h2_updated_feb_2026_x64_dvd_9271bf68.iso"
-    boot_order = "1"
+    # Try using an integer (no quotes)
+    boot_order = 1
   }
 
-  # 2. OS Disk (BOOT SECOND)
+  # 2. OS Disk
   disk {
     volume_id  = libvirt_volume.windows_os.id
-    boot_order = "2"
+    boot_order = 2
   }
 
-  # 3. VirtIO Drivers ISO (Used during install, not for booting)
+  # 3. VirtIO Drivers (No boot order)
   disk {
     file = "/home/vmadmin/iso/virtio-win.iso"
   }
-
-  # 4. Data Disk
-  disk {
-    volume_id = libvirt_volume.windows_data.id
-  }
-
 
   console {
     type        = "pty"
@@ -114,7 +109,7 @@ resource "libvirt_domain" "windows" {
   }
 
 xml {
-    xslt = <<EOF
+  xslt = <<EOF
 <?xml version="1.0" ?>
 <xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
   <xsl:output omit-xml-declaration="yes" indent="yes"/>
@@ -142,6 +137,8 @@ xml {
   <xsl:template match="/domain/os">
     <xsl:copy>
       <xsl:apply-templates select="node()|@*"/>
+      <boot dev='cdrom'/>
+      <boot dev='hd'/>
       <bootmenu enable='yes' timeout='5000'/>
     </xsl:copy>
   </xsl:template>
