@@ -138,13 +138,6 @@ xml {
     </xsl:copy>
   </xsl:template>
 
-  <xsl:template match="/domain/features">
-    <xsl:copy>
-      <xsl:apply-templates select="node()|@*"/>
-      <smm state="on"/>
-    </xsl:copy>
-  </xsl:template>
-
   <xsl:template match="/domain/os">
     <xsl:copy>
       <xsl:apply-templates select="node()|@*"/>
