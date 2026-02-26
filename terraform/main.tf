@@ -109,7 +109,7 @@ resource "libvirt_domain" "windows" {
   }
 
   video {
-    type = "vga"
+    type = "virtio"
   }
 
   xml {
@@ -121,6 +121,13 @@ resource "libvirt_domain" "windows" {
   <xsl:template match="node()|@*">
     <xsl:copy>
       <xsl:apply-templates select="node()|@*"/>
+    </xsl:copy>
+  </xsl:template>
+
+  <xsl:template match="/domain/os">
+    <xsl:copy>
+      <xsl:apply-templates select="node()|@*"/>
+      <bootmenu enable='yes' timeout='5000'/>
     </xsl:copy>
   </xsl:template>
 
@@ -139,6 +146,7 @@ resource "libvirt_domain" "windows" {
       <smm state="on"/>
     </xsl:copy>
   </xsl:template>
+
 
 
   <xsl:template match="/domain/devices/disk[@device='cdrom']/target/@bus">
