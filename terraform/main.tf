@@ -163,3 +163,4 @@ resource "libvirt_domain" "windows" {
 </xsl:stylesheet>
 EOF
   }
+}
