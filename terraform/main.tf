@@ -79,7 +79,7 @@ resource "libvirt_domain" "windows" {
   }
 
   # Devices (disks, interfaces, TPM, graphics, video)
-  devices {
+  devices = {
     # Disks (list of objects)
     disks = [
       # Installation ISO (CDROM)
