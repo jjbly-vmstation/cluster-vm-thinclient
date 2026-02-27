@@ -144,7 +144,9 @@ resource "libvirt_domain" "windows" {
             network = var.network_name
           }
         }
-        mac  = var.mac_address
+        mac = {
+          address = var.mac_address
+        }
         model = {
           type = "virtio"
         }
