@@ -45,43 +45,36 @@ resource "libvirt_domain" "windows" {
   type      = "kvm"
   vcpu      = var.vcpus
   memory    = var.memory_mb
-  # optional memory_unit if you need something other than MiB
   autostart = true
 
-  # CPU configuration
   cpu = {
     mode = "host-passthrough"
   }
 
-  # OS configuration (UEFI, boot order, etc.)
   os = {
     type         = "hvm"
     type_arch    = "x86_64"
-    type_machine = "q35"                       # matches your earlier "machine"
+    type_machine = "q35"
 
-    # Firmware (UEFI with Secure Boot)
-    loader          = var.firmware_path         # e.g. /.../OVMF_CODE.secboot.fd
+    loader          = var.firmware_path
     loader_type     = "pflash"
     loader_readonly = "yes"
-    loader_secure   = "yes"                     # enable Secure Boot
+    loader_secure   = "yes"
 
-    # Boot order: CDROM first, then disk
     boot_devices = [
       { dev = "cdrom" },
       { dev = "hd" }
     ]
 
-    # Boot menu
     bootmenu = {
       enable  = "yes"
       timeout = "5000"
     }
 
-    # NVRAM (UEFI variable store)
     nv_ram = {
-      file     = var.nvram_file                  # path to copy of VARS (auto-generated if omitted)
-      template = var.nvram_template               # template VARS file (e.g. OVMF_VARS.fd)
-      # optional format block if needed
+      file     = var.nvram_file
+      template = var.nvram_template
+      # format = { type = "raw" }   # uncomment if needed
     }
   }
 
@@ -190,9 +183,9 @@ resource "libvirt_domain" "windows" {
     ]
   }
 
-  # Features (SMM required for Secure Boot + TPM)
   features = {
     acpi = true
-    smm  = "on"   # must be string "on"/"off"
+    smm = { state = "on" }   # ✅ object with state
   }
+
 }
