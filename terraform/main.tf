@@ -15,22 +15,38 @@ provider "libvirt" {
 # --- Storage ---
 resource "libvirt_volume" "windows_os" {
   name   = "windows-os.qcow2"
-  pool   = "default"
-  size   = 68719476736 # 64GB
+  pool   = var.pool_name
+  size   = var.os_disk_size_gb * 1024 * 1024 * 1024
   format = "qcow2"
-  lifecycle { prevent_destroy = true }
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
-# --- VM Definition ---
+resource "libvirt_volume" "windows_data" {
+  name   = "windows-data.qcow2"
+  pool   = var.pool_name
+  size   = var.data_disk_size_gb * 1024 * 1024 * 1024
+  format = "qcow2"
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+# --- Domain Definition ---
 resource "libvirt_domain" "windows" {
   name     = var.vm_name
   memory   = var.memory_mb
   vcpu     = var.vcpus
   type     = "kvm"
-  machine  = "q35" 
-  firmware = var.firmware_path # Must point to OVMF_CODE.secboot.fd
+  machine  = "q35" # Required for modern Windows 11
+  firmware = var.firmware_path
 
-  cpu { mode = "host-passthrough" }
+  cpu {
+    mode = "host-passthrough"
+  }
 
   network_interface {
     network_name = var.network_name
@@ -42,7 +58,7 @@ resource "libvirt_domain" "windows" {
     file = "/home/vmadmin/iso/en-us_windows_11_business_editions_version_25h2_updated_feb_2026_x64_dvd_9271bf68.iso"
   }
 
-  # Disk 2: OS Volume
+  # Disk 2: OS Disk
   disk {
     volume_id = libvirt_volume.windows_os.id
   }
@@ -54,9 +70,10 @@ resource "libvirt_domain" "windows" {
 
   nvram {
     file     = "/home/vmadmin/disks/windows-vars.fd"
-    template = var.nvram_template # Must point to OVMF_VARS.fd
+    template = var.nvram_template
   }
 
+  # Windows 11 Enterprise requires TPM 2.0
   tpm {
     backend_type    = "emulator"
     backend_version = "2.0"
@@ -69,8 +86,11 @@ resource "libvirt_domain" "windows" {
     autoport       = true
   }
 
-  video { type = "vga" }
+  video {
+    type = "vga" # Use VGA for initial installation to avoid driver hang
+  }
 
+  # Hardware Patching (Robustness Layer)
   xml {
     xslt = <<EOF
 <?xml version="1.0" ?>
@@ -97,13 +117,6 @@ resource "libvirt_domain" "windows" {
     </xsl:copy>
   </xsl:template>
 
-  <xsl:template match="/domain/devices/disk/target">
-    <xsl:copy>
-      <xsl:apply-templates select="@*"/>
-      <xsl:attribute name="bus">sata</xsl:attribute>
-    </xsl:copy>
-  </xsl:template>
-
   <xsl:template match="/domain/devices/disk/boot"/>
 
   <xsl:template match="/domain/os">
@@ -112,6 +125,13 @@ resource "libvirt_domain" "windows" {
       <boot dev='cdrom'/>
       <boot dev='hd'/>
       <bootmenu enable='yes' timeout='5000'/>
+    </xsl:copy>
+  </xsl:template>
+
+  <xsl:template match="/domain/devices/disk/target">
+    <xsl:copy>
+      <xsl:apply-templates select="@*"/>
+      <xsl:attribute name="bus">sata</xsl:attribute>
     </xsl:copy>
   </xsl:template>
 
