@@ -71,20 +71,30 @@
     # ============================================================
     # Terraform installation
     # ============================================================
-    - name: Remove existing Terraform binary to ensure correct version
-      file:
+    - name: Check if Terraform binary exists
+      stat:
         path: "{{ terraform_bin }}"
-        state: absent
+      register: tf_bin_check
 
-    - name: Download Terraform binary
+    - name: Check current Terraform version
+      command: "{{ terraform_bin }} version"
+      register: tf_version_check
+      changed_when: false
+      ignore_errors: true
+      when: tf_bin_check.stat.exists
+
+    - name: Download Terraform binary to controller
       get_url:
         url: "https://releases.hashicorp.com/terraform/{{ terraform_version }}/terraform_{{ terraform_version }}_linux_amd64.zip"
-        dest: /tmp/terraform.zip
+        dest: "/tmp/terraform_{{ terraform_version }}.zip"
         mode: '0644'
+      delegate_to: localhost
+      become: false
       register: download_terraform
       until: download_terraform is success
       retries: 3
       delay: 5
+      when: not tf_bin_check.stat.exists or (tf_version_check.stdout is defined and terraform_version not in tf_version_check.stdout)
 
     - name: Ensure unzip is installed
       package:
@@ -93,10 +103,10 @@
 
     - name: Unzip Terraform binary
       unarchive:
-        src: /tmp/terraform.zip
+        src: "/tmp/terraform_{{ terraform_version }}.zip"
         dest: /usr/local/bin/
-        remote_src: yes
-        creates: "{{ terraform_bin }}"
+        remote_src: no
+      when: not tf_bin_check.stat.exists or (tf_version_check.stdout is defined and terraform_version not in tf_version_check.stdout)
 
     - name: Ensure Terraform is executable
       file:
