@@ -44,6 +44,44 @@
         state: present
       when: ansible_os_family == "RedHat"
 
+  # ##. SYSTEMD SERVICE CREATION (The Robust Fix)
+    - name: Create systemd unit file for vmrest
+      copy:
+        dest: /etc/systemd/system/vmrest.service
+        content: |
+          [Unit]
+          Description=VMware Workstation REST API Service
+          After=network.target
+
+          [Service]
+          Type=simple
+          User=root
+          # Required for RHEL shared libraries
+          Environment=LD_LIBRARY_PATH=/usr/lib/vmware/lib
+          ExecStart=/usr/bin/vmrest -i 0.0.0.0 -p {{ vmrest_port }}
+          Restart=on-failure
+          RestartSec=5
+
+          [Install]
+          WantedBy=multi-user.target
+      notify: Reload Systemd
+
+    - name: Force systemd reload if unit changed
+      meta: flush_handlers
+
+    - name: Ensure vmrest is enabled and running
+      systemd:
+        name: vmrest
+        state: restarted
+        enabled: yes
+        daemon_reload: yes
+
+    - name: Wait for vmrest to be ready (port {{ vmrest_port }})
+      wait_for:
+        port: "{{ vmrest_port }}"
+        delay: 2
+        timeout: 30
+
     # ============================================================
     # VMware Workstation installation (if not present)
     # ============================================================
