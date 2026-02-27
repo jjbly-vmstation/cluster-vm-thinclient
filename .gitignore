@@ -8,7 +8,6 @@
 
 # .tfvars files (often contain sensitive variable values or environment-specific data)
 # Consider using a naming convention for sensitive files you want to ignore, e.g., *.secrets.tfvars
-*.tfvars
 # Exception for a specific tfvars file you might want to commit, if applicable
 # !example.tfvars
 

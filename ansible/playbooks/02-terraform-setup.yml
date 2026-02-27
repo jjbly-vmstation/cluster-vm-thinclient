@@ -1,5 +1,5 @@
 ---
-- name: Setup Windows VM Thin-Client with Terraform on homelab
+- name: Setup VMware Workstation Environment on RHEL Homelab
   hosts: homelab
   become: true
   vars:
@@ -8,34 +8,32 @@
     terraform_dir: "/home/vmadmin/vmstation-org/cluster-vm-thinclient/terraform"
     terraform_src_dir: "{{ playbook_dir }}/../../terraform"
     force_vm_recreate: false # Set to true to force VM destruction and recreation
-    vm_name: "windows-thinclient"
+    vm_name: "windows-11-enterprise"
+    vmws_user: "vmadmin"
+    vmws_pass: "VMwareAPI123!" # CHANGEME: Use vault in production
 
   tasks:
-    - name: Ensure required packages are installed (Debian/Ubuntu)
-      apt:
-        name:
-          - libvirt-daemon-system
-          - libvirt-clients
-          - qemu-kvm
-          - unzip
-          - wget
-          - genisoimage
-          - libvirt-dev
-        state: present
-        update_cache: true
-      when: ansible_os_family == "Debian"
-
-    - name: Ensure required packages are installed (RedHat/CentOS)
+    - name: Clean up KVM/Libvirt packages (Migration to VMware)
       yum:
         name:
           - libvirt
           - qemu-kvm
+          - virt-install
+          - virt-manager
+        state: absent
+      when: ansible_os_family == "RedHat"
+
+    - name: Install VMware Workstation Prerequisites (RHEL)
+      yum:
+        name:
+          - kernel-devel
+          - kernel-headers
+          - gcc
+          - make
+          - glibc-headers
+          - elfutils-libelf-devel
           - unzip
           - wget
-          - genisoimage
-          - swtpm
-          - swtpm-tools
-          - edk2-ovmf
         state: present
       when: ansible_os_family == "RedHat"
 
@@ -63,14 +61,6 @@
       file:
         path: /usr/local/bin/terraform
         mode: '0755'
-
-    - name: Allow VNC ports in firewall
-      ansible.posix.firewalld:
-        port: 5900-5905/tcp
-        permanent: true
-        state: enabled
-        immediate: true
-      when: ansible_os_family == "RedHat"
 
     - name: Create Terraform directory on homelab
       file:
@@ -104,161 +94,38 @@
         group: vmadmin
         mode: '0755'
 
-    - name: Download VirtIO drivers ISO (stable)
-      command: wget -O /home/vmadmin/iso/virtio-win.iso https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso
-      args:
-        creates: /home/vmadmin/iso/virtio-win.iso
+    - name: Configure VMware Workstation REST API Credentials
+      # This sets the credentials for the vmrest daemon
+      command: "/usr/bin/vmrest -C -u {{ vmws_user }} -p {{ vmws_pass }}"
+      register: vmrest_creds
+      changed_when: vmrest_creds.rc == 0
+      ignore_errors: true # May fail if vmrest is not installed yet (manual step required)
 
-    - name: Ensure VirtIO ISO permissions
-      file:
-        path: /home/vmadmin/iso/virtio-win.iso
-        owner: vmadmin
-        group: vmadmin
-        mode: '0644'
+    - name: Enable and Start VMware REST API Service
+      systemd:
+        name: vmware-workstation-server
+        state: started
+        enabled: yes
+      ignore_errors: true # Service might be named differently depending on version
 
-    - name: Forcefully stop any lingering VM domain
-      command: "virsh destroy {{ vm_name }}"
-      register: virsh_destroy
-      changed_when: virsh_destroy.rc == 0
-      failed_when: false # Ignore errors if VM doesn't exist or isn't running
-      when: force_vm_recreate
+    - name: Ensure vmrest is running (fallback if systemd service missing)
+      shell: "nohup /usr/bin/vmrest > /var/log/vmrest.log 2>&1 &"
+      async: 10
+      poll: 0
+      when: vmrest_creds.rc == 0
 
-    - name: Undefine any lingering VM and delete NVRAM to ensure clean state
-      command: "virsh undefine {{ vm_name }} --nvram"
-      register: virsh_undefine
-      changed_when: virsh_undefine.rc == 0
-      failed_when: false # Ignore errors if VM doesn't exist
-      when: force_vm_recreate
     - name: Run terraform init
       command: "{{ terraform_bin }} init -upgrade -reconfigure"
       args:
         chdir: "{{ terraform_dir }}"
       become_user: vmadmin
 
-    - name: Check Terraform providers (debug)
-      command: "{{ terraform_bin }} providers"
-      args:
-        chdir: "{{ terraform_dir }}"
-      become_user: vmadmin
-      register: tf_providers
-
-    - name: Check Terraform version (debug)
-      command: "{{ terraform_bin }} version"
-      args:
-        chdir: "{{ terraform_dir }}"
-      become_user: vmadmin
-      register: tf_version
-
-    - name: Display Terraform providers
-      debug:
-        msg: 
-          - "Providers: {{ tf_providers.stdout_lines }}"
-          - "Version: {{ tf_version.stdout_lines }}"
-
-    - name: Check for preferred OVMF CODE file
-      stat:
-        path: "{{ item }}"
-        follow: yes
-      loop:
-        - /usr/share/edk2/ovmf/OVMF_CODE.secboot.fd
-        - /usr/share/OVMF/OVMF_CODE.secboot.fd
-        - /usr/share/edk2/ovmf/OVMF_CODE.fd
-        - /usr/share/OVMF/OVMF_CODE.fd
-      register: ovmf_code_stat_results
-
-    - name: Set OVMF CODE path fact
-      set_fact:
-        ovmf_code_src_path: "{{ (ovmf_code_stat_results.results | selectattr('stat.exists') | map(attribute='item') | first) | default('') }}"
-
-    - name: Check for preferred OVMF VARS file
-      stat:
-        path: "{{ item }}"
-        follow: yes
-      loop:
-        # Prefer the secboot-specific vars file if it exists
-        - /usr/share/edk2/ovmf/OVMF_VARS.secboot.fd
-        - /usr/share/OVMF/OVMF_VARS.secboot.fd
-        - /usr/share/edk2/ovmf/OVMF_VARS_4M.secboot.fd
-        - /usr/share/OVMF/OVMF_VARS_4M.secboot.fd
-        - /usr/share/edk2/ovmf/OVMF_VARS_4M.fd
-        - /usr/share/OVMF/OVMF_VARS_4M.fd
-        # Fall back to the generic vars template
-        - /usr/share/edk2/ovmf/OVMF_VARS.fd
-        - /usr/share/OVMF/OVMF_VARS.fd
-        # RHEL 10 / CentOS Stream 9+ specific
-        - /usr/share/edk2/ovmf/OVMF.qemuvars.fd
-        - /usr/share/OVMF/OVMF.qemuvars.fd
-      register: ovmf_vars_stat_results
-
-    - name: Set OVMF VARS path fact
-      set_fact:
-        ovmf_vars_src_path: "{{ (ovmf_vars_stat_results.results | selectattr('stat.exists') | map(attribute='item') | first) | default('') }}"
-
-    - name: Debug OVMF directory contents if VARS not found
-      command: ls -la /usr/share/edk2/ovmf/
-      register: ovmf_dir_listing
-      when: ovmf_vars_src_path == ''
-      ignore_errors: true
-
-    - name: Display OVMF directory contents
-      debug:
-        var: ovmf_dir_listing.stdout_lines
-      when: ovmf_vars_src_path == ''
-
-    - name: Fail if OVMF files are not found
-      fail:
-        msg: |
-          Could not find required OVMF files.
-          Please ensure the 'edk2-ovmf' package is installed and provides these files.
-          Debug Info:
-          OVMF_CODE.secboot.fd found at: {{ ovmf_code_src_path }}
-          OVMF_VARS.fd found at: {{ ovmf_vars_src_path }}
-      when: ovmf_code_src_path == '' or ovmf_vars_src_path == ''
-
-    - name: Create a controlled firmware directory for the VM
-      file:
-        path: "/home/vmadmin/disks/firmware"
-        state: directory
-        owner: vmadmin
-        group: vmadmin
-        mode: '0755'
-
-    - name: Copy OVMF files to controlled directory
-      copy:
-        src: "{{ item.src }}"
-        dest: "{{ item.dest }}"
-        remote_src: yes
-        owner: vmadmin
-        group: vmadmin
-        mode: '0644'
-      loop:
-        - { src: "{{ ovmf_code_src_path }}", dest: "/home/vmadmin/disks/firmware/OVMF_CODE.secboot.fd" }
-        - { src: "{{ ovmf_vars_src_path }}", dest: "/home/vmadmin/disks/firmware/OVMF_VARS.fd" }
-
-    - name: Ensure semanage is available for permanent SELinux changes
-      yum:
-        name: policycoreutils-python-utils
-        state: present
-      when: ansible_os_family == "RedHat"
-    - name: Set permanent SELinux context for controlled firmware directory
-      command: "semanage fcontext -a -t svirt_image_t '/home/vmadmin/disks/firmware(/.*)?'"
-      register: semanage_result
-      changed_when: "'already defined' not in semanage_result.stderr"
-      failed_when: semanage_result.rc != 0 and 'already defined' not in semanage_result.stderr
-      when: ansible_os_family == "RedHat"
-
-    - name: Apply SELinux context to controlled firmware directory
-      command: "restorecon -Rv /home/vmadmin/disks/firmware"
-      register: restorecon_result
-      changed_when: "'Relabeled' in restorecon_result.stdout"
-      when: ansible_os_family == "RedHat"
-
     - name: Run terraform apply (auto-approve)
       command: >
         {{ terraform_bin }} apply -auto-approve 
-        -var='libvirt_uri=qemu:///system' 
-        -var='firmware_path=/home/vmadmin/disks/firmware/OVMF_CODE.secboot.fd' 
-        -var='nvram_template=/home/vmadmin/disks/firmware/OVMF_VARS.fd'
+        -var='vmws_user={{ vmws_user }}'
+        -var='vmws_password={{ vmws_pass }}'
+        -var='iso_path=/home/vmadmin/iso/windows11.iso'
       args:
         chdir: "{{ terraform_dir }}"
       become_user: vmadmin

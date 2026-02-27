@@ -1,25 +1,31 @@
-variable "libvirt_uri" {
-  description = "Libvirt connection URI"
+variable "vmws_url" {
+  description = "VMware Workstation REST API URL"
   type        = string
-  default     = "qemu:///system"
+  default     = "http://localhost:8697/api"
 }
 
-variable "pool_name" {
-  description = "Storage pool name"
+variable "vmws_user" {
+  description = "VMware REST API User"
   type        = string
-  default     = "default"
+  sensitive   = true
+}
+
+variable "vmws_password" {
+  description = "VMware REST API Password"
+  type        = string
+  sensitive   = true
 }
 
 variable "vm_name" {
   description = "VM name"
   type        = string
-  default     = "windows-thinclient"
+  default     = "windows-11-enterprise"
 }
 
 variable "memory_mb" {
   description = "Memory in MB"
   type        = number
-  default     = 12288
+  default     = 8192
 }
 
 variable "vcpus" {
@@ -28,14 +34,8 @@ variable "vcpus" {
   default     = 4
 }
 
-variable "os_disk_size_gb" {
-  description = "OS disk size in GB"
-  type        = number
-  default     = 64
-}
-
-variable "data_disk_size_gb" {
-  description = "Data disk size in GB"
+variable "disk_size_gb" {
+  description = "Main disk size in GB"
   type        = number
   default     = 100
 }
@@ -43,40 +43,4 @@ variable "data_disk_size_gb" {
 variable "iso_path" {
   description = "Path to Windows 11 ISO"
   type        = string
-}
-
-variable "virtio_iso_path" {
-  description = "Path to virtio-win ISO"
-  type        = string
-  default     = "/home/vmadmin/iso/virtio-win.iso"
-}
-
-variable "network_name" {
-  description = "Libvirt network name"
-  type        = string
-  default     = "default"
-}
-
-variable "mac_address" {
-  description = "Pinned MAC address"
-  type        = string
-  default     = "52:54:00:00:f0:0d"
-}
-
-variable "firmware_path" {
-  description = "Path to OVMF firmware with Secure Boot"
-  type        = string
-  default     = "/home/vmadmin/disks/firmware/OVMF_CODE.secboot.fd"
-}
-
-variable "nvram_template" {
-  description = "Path to OVMF vars template"
-  type        = string
-  default     = "/home/vmadmin/disks/firmware/OVMF_VARS.fd"
-}
-
-variable "nvram_file" {
-  description = "Path to VM‑specific NVRAM file"
-  type        = string
-  default     = "/home/vmadmin/disks/windows-vars.fd"
 }

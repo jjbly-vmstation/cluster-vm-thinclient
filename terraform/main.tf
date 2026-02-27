@@ -1,191 +1,43 @@
 terraform {
   required_version = ">= 1.5.0"
   required_providers {
-    libvirt = {
-      source  = "dmacvicar/libvirt"
-      version = "0.9.2"   # or 0.9.1 – both use the same schema
+    vmworkstation = {
+      source  = "elsudano/vmworkstation"
+      version = "2.0.1"
     }
   }
 }
 
-provider "libvirt" {
-  uri = var.libvirt_uri
+provider "vmworkstation" {
+  url      = var.vmws_url
+  user     = var.vmws_user
+  password = var.vmws_password
+  https    = false
 }
 
-# ----------------------------------------------------------------------
-# Volumes (OS and Data)
-# ----------------------------------------------------------------------
-resource "libvirt_volume" "windows_os" {
-  name     = "${var.vm_name}-os.qcow2"
-  pool     = var.pool_name
-  capacity = var.os_disk_size_gb * 1024 * 1024 * 1024   # bytes
-  target = {
-    format = {
-      type = "qcow2"
+resource "vmworkstation_vm" "windows_vm" {
+  vm_name = var.vm_name
+  vm_path = "[standard]/${var.vm_name}"
+
+  guest_os_type = "windows11-64"
+  mem_size      = var.memory_mb
+  num_cpus      = var.vcpus
+  firmware      = "efi"
+
+  disks = [
+    {
+      size = var.disk_size_gb
     }
-  }
-}
+  ]
 
-resource "libvirt_volume" "windows_data" {
-  name     = "${var.vm_name}-data.qcow2"
-  pool     = var.pool_name
-  capacity = var.data_disk_size_gb * 1024 * 1024 * 1024
-  target = {
-    format = {
-      type = "qcow2"
+  cdrom = {
+    iso_path = var.iso_path
+  }
+
+  network_interfaces = [
+    {
+      network_name = "Bridged"
     }
-  }
-}
-
-# ----------------------------------------------------------------------
-# Domain (VM)
-# ----------------------------------------------------------------------
-resource "libvirt_domain" "windows" {
-  name      = var.vm_name
-  type      = "kvm"
-  vcpu      = var.vcpus
-  memory    = var.memory_mb
-  autostart = true
-
-  cpu = {
-    mode = "host-passthrough"
-  }
-
-os = {
-  type         = "hvm"
-  type_arch    = "x86_64"
-  type_machine = "q35"
-  firmware     = "efi"                      # required for UEFI
-  loader       = var.firmware_path
-  loader_type  = "pflash"
-  loader_readonly = true                     # boolean, not string
-  # loader_secure is omitted – may be inferred
-
-  boot_devices = ["cdrom", "hd"]             # list of strings, not objects
-
-  bootmenu = {
-    enable  = "yes"
-    timeout = "5000"
-  }
-
-  nv_ram = {
-    nv_ram   = var.nvram_file                # key is nv_ram, not file
-    template = var.nvram_template
-    # no format block
-  }
-}
-
-
-  # Devices (disks, interfaces, TPM, graphics, video)
-  devices = {
-    # Disks (list of objects)
-    disks = [
-      # Installation ISO (CDROM)
-      {
-        source = {
-          file = {
-            file = var.iso_path
-          }
-        }
-        target = {
-          dev = "sda"
-          bus = "sata"
-        }
-        type = "cdrom"   # or device = "cdrom" – check docs
-      },
-      # OS disk (from volume)
-      {
-        source = {
-          volume = {
-            pool   = var.pool_name
-            volume = libvirt_volume.windows_os.name
-          }
-        }
-        target = {
-          dev = "sdb"
-          bus = "sata"
-        }
-      },
-      # Data disk (from volume)
-      {
-        source = {
-          volume = {
-            pool   = var.pool_name
-            volume = libvirt_volume.windows_data.name
-          }
-        }
-        target = {
-          dev = "sdc"
-          bus = "sata"
-        }
-      },
-      # VirtIO drivers ISO (CDROM)
-      {
-        source = {
-          file = {
-            file = var.virtio_iso_path
-          }
-        }
-        target = {
-          dev = "sdd"
-          bus = "sata"
-        }
-        type = "cdrom"
-      }
-    ]
-
-    # Network interfaces (list of objects)
-    interfaces = [
-      {
-        source = {
-          network = {
-            network = var.network_name
-          }
-        }
-        mac = {
-          address = var.mac_address
-        }
-        model = {
-          type = "virtio"
-        }
-        # wait_for_ip = {}  # optional
-      }
-    ]
-
-    # TPM 2.0 (list of objects)
-    tpms = [
-      {
-        backend = {
-          emulator = {}
-        }
-        # The version attribute is set at the TPM device level
-        version = "2.0"
-      }
-    ]
-
-    # Graphics (VNC)
-    graphics = [
-      {
-        type        = "vnc"
-        listen_type = "address"
-        listen_address = "0.0.0.0"
-        autoport    = true
-      }
-    ]
-
-    # Video (virtio)
-    videos = [
-      {
-        model = {
-          type = "virtio"
-        }
-      }
-    ]
-  }
-
-  features = {
-    acpi = true
-    smm = { state = "on" }   # ✅ object with state
-  }
-
+  ]
+  power_on = true
 }
