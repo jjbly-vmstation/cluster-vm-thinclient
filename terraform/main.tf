@@ -51,20 +51,26 @@ resource "libvirt_domain" "windows" {
     network_name = var.network_name
     mac          = var.mac_address
   }
-
-  # 1. Windows Installer ISO
+  
+  
+  # 1. Windows Installer ISO (Set to SATA)
   disk {
     file       = "/home/vmadmin/iso/en-us_windows_11_business_editions_version_25h2_updated_feb_2026_x64_dvd_9271bf68.iso"
+    bus        = "sata" # Use SATA instead of default IDE
+    boot_order = 1
   }
 
-  # 2. OS Disk
+  # 2. OS Disk (Set to VirtIO for performance)
   disk {
     volume_id  = libvirt_volume.windows_os.id
+    bus        = "virtio" # VirtIO is best for the OS disk
+    boot_order = 2
   }
 
-  # 3. VirtIO Drivers
+  # 3. VirtIO Drivers ISO (Set to SATA)
   disk {
     file = "/home/vmadmin/iso/virtio-win.iso"
+    bus  = "sata"
   }
 
   console {
