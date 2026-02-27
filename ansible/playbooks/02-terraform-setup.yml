@@ -152,7 +152,7 @@
     # VMware Workstation REST API (vmrest) configuration
     # ============================================================
     - name: Configure vmrest credentials
-      command: "/usr/bin/vmrest -C -u {{ vmws_user }} -p {{ vmws_pass }}"
+      shell: "printf '{{ vmws_user }}\n{{ vmws_pass }}\n' | /usr/bin/vmrest -C"
       register: vmrest_creds
       changed_when: vmrest_creds.rc == 0
 
