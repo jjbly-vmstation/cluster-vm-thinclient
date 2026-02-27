@@ -7,17 +7,33 @@
     terraform_bin: "/usr/local/bin/terraform"
     terraform_dir: "/home/vmadmin/vmstation-org/cluster-vm-thinclient/terraform"
     terraform_src_dir: "{{ playbook_dir }}/../../terraform"
-    force_vm_recreate: false # Set to true to force VM destruction and recreation
+    force_vm_recreate: false
     vm_name: "windows-11-enterprise"
     vmws_user: "vmadmin"
-    vmws_pass: "VMwareAPI123!" # CHANGEME: Use vault in production
-    iso_path: "/home/vmadmin/iso/windows11.iso"
+    vmws_pass: "VMwareAPI123!"  # Override via group_vars/all/local.yml
+    vmware_bundle_url: ""        # Set this if you want automatic installation
     vmrest_port: 8697
+    vm_admin_user: "vmadmin"
 
   tasks:
     # ============================================================
     # Preflight checks
     # ============================================================
+    - name: Find Windows ISO in /home/vmadmin/iso
+      find:
+        paths: "/home/vmadmin/iso"
+        patterns: "*windows*.iso"
+      register: iso_search
+
+    - name: Fail if no ISO found
+      fail:
+        msg: "No ISO file found in /home/vmadmin/iso. Please ensure a Windows ISO is present."
+      when: iso_search.matched == 0
+
+    - name: Set ISO path
+      set_fact:
+        iso_path: "{{ iso_search.files[0].path }}"
+
     - name: Verify that the Windows ISO exists
       stat:
         path: "{{ iso_path }}"
@@ -38,13 +54,48 @@
         state: present
       when: ansible_os_family == "RedHat"
 
-    - name: Check if VMware Workstation is installed (by looking for vmrest)
+    # ============================================================
+    # VMware Workstation installation (if not present)
+    # ============================================================
+    - name: Define VMware Workstation installation check path
+      set_fact:
+        vmware_installed_check: /usr/lib/vmware
+
+    - name: Check if VMware Workstation is already installed
+      stat:
+        path: "{{ vmware_installed_check }}"
+      register: vmware_installed
+
+    - name: Download VMware Workstation bundle (if not installed)
+      get_url:
+        url: "{{ vmware_bundle_url }}"
+        dest: /tmp/vmware-workstation.bundle
+        mode: '0755'
+      when:
+        - not vmware_installed.stat.exists
+        - vmware_bundle_url is defined and vmware_bundle_url | length > 0
+      register: bundle_download
+
+    - name: Fail if VMware not installed and no bundle URL provided
+      fail:
+        msg: "VMware Workstation is not installed and vmware_bundle_url is not set. Please install manually or provide the bundle URL."
+      when:
+        - not vmware_installed.stat.exists
+        - vmware_bundle_url is not defined or vmware_bundle_url | length == 0
+
+    - name: Install VMware Workstation from bundle
+      command: /tmp/vmware-workstation.bundle --console --eulas-agreed --required
+      args:
+        creates: "{{ vmware_installed_check }}"
+      when:
+        - not vmware_installed.stat.exists
+        - bundle_download is changed
+
+    - name: Verify vmrest is available
       command: which vmrest
       register: vmrest_check
       changed_when: false
       failed_when: vmrest_check.rc != 0
-      # This will fail if vmrest is not in PATH – indicating VMware Workstation is not installed.
-      # If you prefer a softer check, use ignore_errors and a follow-up task.
 
     # ============================================================
     # Terraform installation
@@ -93,15 +144,17 @@
       file:
         path: "{{ terraform_dir }}"
         state: directory
-        owner: vmadmin
-        group: vmadmin
+        owner: "{{ vm_admin_user }}"
+        group: "{{ vm_admin_user }}"
         mode: '0755'
 
     - name: Copy Terraform files from controller to homelab
+      become: false
       synchronize:
         src: "{{ terraform_src_dir }}/"
         dest: "{{ terraform_dir }}/"
         mode: push
+        rsync_path: "sudo rsync"
         rsync_opts:
           - "--exclude=.terraform"
           - "--exclude=.terraform.lock.hcl"
@@ -110,17 +163,9 @@
       file:
         path: "{{ terraform_dir }}"
         state: directory
-        owner: vmadmin
-        group: vmadmin
+        owner: "{{ vm_admin_user }}"
+        group: "{{ vm_admin_user }}"
         recurse: yes
-
-    - name: Ensure ISO directory exists (if not already)
-      file:
-        path: "{{ iso_path | dirname }}"
-        state: directory
-        owner: vmadmin
-        group: vmadmin
-        mode: '0755'
 
     # ============================================================
     # VMware Workstation REST API (vmrest) configuration
@@ -129,7 +174,6 @@
       command: "/usr/bin/vmrest -C -u {{ vmws_user }} -p {{ vmws_pass }}"
       register: vmrest_creds
       changed_when: vmrest_creds.rc == 0
-      # This may fail if vmrest is not installed; we already checked its presence earlier.
 
     - name: Attempt to start vmrest via systemd (if service exists)
       systemd:
@@ -161,17 +205,20 @@
       command: "{{ terraform_bin }} init -upgrade -reconfigure"
       args:
         chdir: "{{ terraform_dir }}"
-      become_user: vmadmin
+      become_user: "{{ vm_admin_user }}"
       register: tf_init
       changed_when: "'Terraform has been successfully initialized' in tf_init.stdout"
 
     - name: Conditionally destroy existing VM if force_vm_recreate is true
-      command: "{{ terraform_bin }} destroy -auto-approve -var='vmws_user={{ vmws_user }}' -var='vmws_password={{ vmws_pass }}' -var='iso_path={{ iso_path }}'"
+      command: >
+        {{ terraform_bin }} destroy -auto-approve
+        -var='vmws_user={{ vmws_user }}'
+        -var='vmws_password={{ vmws_pass }}'
+        -var='iso_path={{ iso_path }}'
       args:
         chdir: "{{ terraform_dir }}"
-      become_user: vmadmin
+      become_user: "{{ vm_admin_user }}"
       when: force_vm_recreate | bool
-      # This will destroy any existing VM before apply
 
     - name: Run terraform apply (auto-approve)
       command: >
@@ -181,6 +228,6 @@
         -var='iso_path={{ iso_path }}'
       args:
         chdir: "{{ terraform_dir }}"
-      become_user: vmadmin
+      become_user: "{{ vm_admin_user }}"
       register: tf_apply
       changed_when: "'Apply complete' in tf_apply.stdout"
