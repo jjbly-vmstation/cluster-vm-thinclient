@@ -3,7 +3,7 @@ terraform {
   required_providers {
     libvirt = {
       source  = "dmacvicar/libvirt"
-      version = "0.9.3"
+      version = "0.9.1"   # Exact version of the new, rewritten provider
     }
   }
 }
@@ -13,17 +13,18 @@ provider "libvirt" {
 }
 
 # ----------------------------------------------------------------------
-# Volumes
+# Volumes (OS and Data)
 # ----------------------------------------------------------------------
 resource "libvirt_volume" "windows_os" {
   name = "${var.vm_name}-os.qcow2"
   pool = var.pool_name
-  # The 'size' attribute is not used in this version. The volume will be created as a sparse file.
+  size = var.os_disk_size_gb * 1024 * 1024 * 1024   # bytes (supported in 0.9.1)
 }
 
 resource "libvirt_volume" "windows_data" {
   name = "${var.vm_name}-data.qcow2"
   pool = var.pool_name
+  size = var.data_disk_size_gb * 1024 * 1024 * 1024
 }
 
 # ----------------------------------------------------------------------
@@ -31,42 +32,58 @@ resource "libvirt_volume" "windows_data" {
 # ----------------------------------------------------------------------
 resource "libvirt_domain" "windows" {
   name      = var.vm_name
-  # 'machine' and 'firmware' are not supported arguments here.
-  # UEFI and machine type must be configured via the loader and XML.
+  machine   = "q35"                     # Native Q35 support
+  firmware  = var.firmware_path          # Native UEFI firmware with Secure Boot
   autostart = true
 
   vcpu   = var.vcpus
   memory = var.memory_mb
 
-  # CPU configuration is different
-  cpu = {
-    mode = "host-passthrough"
+  cpu {
+    mode = "host-passthrough"            # Native CPU block
   }
 
-  # Network Interface
+  # TPM 2.0 – native block
+  tpm {
+    backend_type    = "emulator"
+    backend_version = "2.0"
+  }
+
+  # Network
   network_interface {
     network_name = var.network_name
     mac          = var.mac_address
   }
 
-  # Disks are attached differently. The OS and Data volumes must be defined in the 'disk' blocks.
-  disk {
-    volume_id = libvirt_volume.windows_os.id
-  }
-
-  disk {
-    volume_id = libvirt_volume.windows_data.id
-  }
-
-  # Attach ISOs as separate disks
+  # Disk 1: Windows installation ISO
   disk {
     file = var.iso_path
   }
+
+  # Disk 2: OS disk – SATA bus for driver‑free installation
+  disk {
+    volume_id  = libvirt_volume.windows_os.id
+    target_bus = "sata"
+  }
+
+  # Disk 3: Data disk – also SATA
+  disk {
+    volume_id  = libvirt_volume.windows_data.id
+    target_bus = "sata"
+  }
+
+  # Disk 4: VirtIO drivers ISO
   disk {
     file = var.virtio_iso_path
   }
 
-  # Graphics and Video
+  # UEFI NVRAM – native block
+  nvram {
+    file     = var.nvram_file
+    template = var.nvram_template
+  }
+
+  # Graphics (VNC)
   graphics {
     type           = "vnc"
     listen_type    = "address"
@@ -74,12 +91,14 @@ resource "libvirt_domain" "windows" {
     autoport       = true
   }
 
+  # Video – virtio (drivers from the attached ISO)
   video {
-    type = "virtio" # Or "vga" if virtio drivers are not yet installed
+    type = "virtio"
   }
 
   # --------------------------------------------------------------------
-  # XML Patching - This is where all the magic happens for 0.9.3
+  # Minimal XML patching (XSLT) for SMM and boot order
+  # (These are still not exposed natively in 0.9.1)
   # --------------------------------------------------------------------
   xml {
     xslt = <<EOF
@@ -100,36 +119,24 @@ resource "libvirt_domain" "windows" {
     </xsl:copy>
   </xsl:template>
 
-  <!-- Add TPM via XML, as the 'tpm' block is not supported -->
-  <xsl:template match="/domain/devices">
-    <xsl:copy>
-      <xsl:apply-templates select="node()|@*"/>
-      <tpm model='tpm-tis'>
-        <backend type='emulator' version='2.0'/>
-      </tpm>
-    </xsl:copy>
-  </xsl:template>
-
-  <!-- Configure UEFI and Machine Type -->
-  <xsl:template match="/domain">
+  <!-- Ensure loader has secure='yes' (firmware path already points to secure one, but double‑check) -->
+  <xsl:template match="/domain/os/loader">
     <xsl:copy>
       <xsl:apply-templates select="@*"/>
-      <xsl:attribute name="type">kvm</xsl:attribute>
-      <os>
-        <type arch='x86_64' machine='q35'>hvm</type>
-        <loader readonly='yes' type='pflash' secure='yes'>${var.firmware_path}</loader>
-        <nvram template='${var.nvram_template}'>${var.nvram_file}</nvram>
-        <boot dev='cdrom'/>
-        <boot dev='hd'/>
-        <bootmenu enable='yes' timeout='5000'/>
-      </os>
-      <xsl:apply-templates select="*[not(self::os)]"/>
+      <xsl:attribute name="secure">yes</xsl:attribute>
+      <xsl:apply-templates select="node()"/>
     </xsl:copy>
   </xsl:template>
 
-  <!-- Remove old device sections that might conflict -->
-  <xsl:template match="/domain/devices/emulator"/>
-  <xsl:template match="/domain/os"/>
+  <!-- Set boot order: CDROM first, then hard disk, show boot menu -->
+  <xsl:template match="/domain/os">
+    <xsl:copy>
+      <xsl:apply-templates select="node()|@*"/>
+      <boot dev='cdrom'/>
+      <boot dev='hd'/>
+      <bootmenu enable='yes' timeout='5000'/>
+    </xsl:copy>
+  </xsl:template>
 </xsl:stylesheet>
 EOF
   }
