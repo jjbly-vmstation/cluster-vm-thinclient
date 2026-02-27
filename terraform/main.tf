@@ -95,9 +95,8 @@ resource "libvirt_domain" "windows" {
     type = "vga"
   }
 
-
 xml {
-    xslt = <<EOF
+  xslt = <<EOF
 <?xml version="1.0" ?>
 <xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
   <xsl:output omit-xml-declaration="yes" indent="yes"/>
@@ -105,6 +104,8 @@ xml {
   <xsl:template match="node()|@*">
     <xsl:copy><xsl:apply-templates select="node()|@*"/></xsl:copy>
   </xsl:template>
+
+  <xsl:template match="/domain/devices/disk/boot"/>
 
   <xsl:template match="/domain/features">
     <xsl:copy>
@@ -138,8 +139,9 @@ xml {
       <bootmenu enable='yes' timeout='5000'/>
     </xsl:copy>
   </xsl:template>
+
 </xsl:stylesheet>
 EOF
-  }
+}
 
 }
