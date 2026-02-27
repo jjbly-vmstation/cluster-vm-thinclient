@@ -19,20 +19,9 @@
     # ============================================================
     # Preflight checks
     # ============================================================
-    - name: Find Windows ISO in /home/vmadmin/iso
-      find:
-        paths: "/home/vmadmin/iso"
-        patterns: "*windows*.iso"
-      register: iso_search
-
-    - name: Fail if no ISO found
-      fail:
-        msg: "No ISO file found in /home/vmadmin/iso. Please ensure a Windows ISO is present."
-      when: iso_search.matched == 0
-
-    - name: Set ISO path
+    - name: Set ISO path (Hardcoded)
       set_fact:
-        iso_path: "{{ iso_search.files[0].path }}"
+        iso_path: "/home/vmadmin/iso/en-us_windows_11_business_editions_version_25h2_updated_feb_2026_x64_dvd_9271bf68.iso"
 
     - name: Verify that the Windows ISO exists
       stat:
@@ -66,30 +55,12 @@
         path: "{{ vmware_installed_check }}"
       register: vmware_installed
 
-    - name: Download VMware Workstation bundle (if not installed)
-      get_url:
-        url: "{{ vmware_bundle_url }}"
-        dest: /tmp/vmware-workstation.bundle
-        mode: '0755'
-      when:
-        - not vmware_installed.stat.exists
-        - vmware_bundle_url is defined and vmware_bundle_url | length > 0
-      register: bundle_download
-
-    - name: Fail if VMware not installed and no bundle URL provided
-      fail:
-        msg: "VMware Workstation is not installed and vmware_bundle_url is not set. Please install manually or provide the bundle URL."
-      when:
-        - not vmware_installed.stat.exists
-        - vmware_bundle_url is not defined or vmware_bundle_url | length == 0
-
     - name: Install VMware Workstation from bundle
-      command: /tmp/vmware-workstation.bundle --console --eulas-agreed --required
+      command: "/home/vmadmin/iso/VMware-Workstation-Full-25H2u1-25219725.x86_64.bundle --console --eulas-agreed --required"
       args:
         creates: "{{ vmware_installed_check }}"
       when:
         - not vmware_installed.stat.exists
-        - bundle_download is changed
 
     - name: Verify vmrest is available
       command: which vmrest
