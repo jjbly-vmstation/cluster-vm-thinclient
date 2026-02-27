@@ -92,7 +92,7 @@ resource "libvirt_domain" "windows" {
   }
   
   video {
-    type = "virtio"
+    type = "vga"
   }
 
 
