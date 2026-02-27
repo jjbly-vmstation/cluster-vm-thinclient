@@ -15,19 +15,20 @@ provider "libvirt" {
 # OS disk (Windows + activation)
 resource "libvirt_volume" "windows_os" {
   name = "windows-os.qcow2"
-  pool = var.pool_name
-  size = var.os_disk_size_gb * 1024 * 1024 * 1024
+  pool = default
+  size = 68719476736
 
   lifecycle {
     prevent_destroy = true
   }
 }
-
+os_disk_size_gb   = 64
+data_disk_size_gb = 100
 # Data disk (persistent user data)
 resource "libvirt_volume" "windows_data" {
   name = "windows-data.qcow2"
-  pool = var.pool_name
-  size = var.data_disk_size_gb * 1024 * 1024 * 1024
+  pool = default
+  size = 107374182400
 
   lifecycle {
     prevent_destroy = true
