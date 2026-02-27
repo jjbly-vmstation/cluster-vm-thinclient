@@ -11,19 +11,20 @@
     vm_name: "windows-11-enterprise"
     vmws_user: "vmadmin"
     vmws_pass: "VMwareAPI123!" # CHANGEME: Use vault in production
+    iso_path: "/home/vmadmin/iso/windows11.iso"
+    vmrest_port: 8697
 
   tasks:
-    - name: Clean up KVM/Libvirt packages (Migration to VMware)
-      yum:
-        name:
-          - libvirt
-          - qemu-kvm
-          - virt-install
-          - virt-manager
-        state: absent
-      when: ansible_os_family == "RedHat"
+    # ============================================================
+    # Preflight checks
+    # ============================================================
+    - name: Verify that the Windows ISO exists
+      stat:
+        path: "{{ iso_path }}"
+      register: iso_file
+      failed_when: not iso_file.stat.exists
 
-    - name: Install VMware Workstation Prerequisites (RHEL)
+    - name: Ensure required packages are installed (prerequisites)
       yum:
         name:
           - kernel-devel
@@ -37,15 +38,31 @@
         state: present
       when: ansible_os_family == "RedHat"
 
+    - name: Check if VMware Workstation is installed (by looking for vmrest)
+      command: which vmrest
+      register: vmrest_check
+      changed_when: false
+      failed_when: vmrest_check.rc != 0
+      # This will fail if vmrest is not in PATH – indicating VMware Workstation is not installed.
+      # If you prefer a softer check, use ignore_errors and a follow-up task.
+
+    # ============================================================
+    # Terraform installation
+    # ============================================================
     - name: Remove existing Terraform binary to ensure correct version
       file:
-        path: /usr/local/bin/terraform
+        path: "{{ terraform_bin }}"
         state: absent
 
     - name: Download Terraform binary
-      command: wget https://releases.hashicorp.com/terraform/1.5.0/terraform_1.5.0_linux_amd64.zip -O /tmp/terraform.zip
-      args:
-        creates: /tmp/terraform.zip
+      get_url:
+        url: "https://releases.hashicorp.com/terraform/{{ terraform_version }}/terraform_{{ terraform_version }}_linux_amd64.zip"
+        dest: /tmp/terraform.zip
+        mode: '0644'
+      register: download_terraform
+      until: download_terraform is success
+      retries: 3
+      delay: 5
 
     - name: Ensure unzip is installed
       package:
@@ -53,15 +70,25 @@
         state: present
 
     - name: Unzip Terraform binary
-      command: unzip /tmp/terraform.zip -d /usr/local/bin/
-      args:
-        creates: /usr/local/bin/terraform
+      unarchive:
+        src: /tmp/terraform.zip
+        dest: /usr/local/bin/
+        remote_src: yes
+        creates: "{{ terraform_bin }}"
 
     - name: Ensure Terraform is executable
       file:
-        path: /usr/local/bin/terraform
+        path: "{{ terraform_bin }}"
         mode: '0755'
 
+    - name: Verify Terraform version
+      command: "{{ terraform_bin }} --version"
+      register: terraform_version_output
+      changed_when: false
+
+    # ============================================================
+    # Prepare Terraform working directory
+    # ============================================================
     - name: Create Terraform directory on homelab
       file:
         path: "{{ terraform_dir }}"
@@ -78,6 +105,7 @@
         rsync_opts:
           - "--exclude=.terraform"
           - "--exclude=.terraform.lock.hcl"
+
     - name: Ensure Terraform directory and files are owned by vmadmin
       file:
         path: "{{ terraform_dir }}"
@@ -86,46 +114,73 @@
         group: vmadmin
         recurse: yes
 
-    - name: Ensure ISO directory exists
+    - name: Ensure ISO directory exists (if not already)
       file:
-        path: "/home/vmadmin/iso"
+        path: "{{ iso_path | dirname }}"
         state: directory
         owner: vmadmin
         group: vmadmin
         mode: '0755'
 
-    - name: Configure VMware Workstation REST API Credentials
-      # This sets the credentials for the vmrest daemon
+    # ============================================================
+    # VMware Workstation REST API (vmrest) configuration
+    # ============================================================
+    - name: Configure vmrest credentials
       command: "/usr/bin/vmrest -C -u {{ vmws_user }} -p {{ vmws_pass }}"
       register: vmrest_creds
       changed_when: vmrest_creds.rc == 0
-      ignore_errors: true # May fail if vmrest is not installed yet (manual step required)
+      # This may fail if vmrest is not installed; we already checked its presence earlier.
 
-    - name: Enable and Start VMware REST API Service
+    - name: Attempt to start vmrest via systemd (if service exists)
       systemd:
         name: vmware-workstation-server
         state: started
         enabled: yes
-      ignore_errors: true # Service might be named differently depending on version
+      ignore_errors: true
+      register: systemd_result
 
-    - name: Ensure vmrest is running (fallback if systemd service missing)
-      shell: "nohup /usr/bin/vmrest > /var/log/vmrest.log 2>&1 &"
+    - name: Start vmrest as background process (fallback)
+      shell: |
+        nohup /usr/bin/vmrest > /var/log/vmrest.log 2>&1 &
       async: 10
       poll: 0
-      when: vmrest_creds.rc == 0
+      when: systemd_result is failed or systemd_result is skipped
 
+    - name: Wait for vmrest to be ready (port {{ vmrest_port }})
+      wait_for:
+        port: "{{ vmrest_port }}"
+        host: localhost
+        delay: 5
+        timeout: 30
+      register: vmrest_ready
+
+    # ============================================================
+    # Terraform execution
+    # ============================================================
     - name: Run terraform init
       command: "{{ terraform_bin }} init -upgrade -reconfigure"
       args:
         chdir: "{{ terraform_dir }}"
       become_user: vmadmin
+      register: tf_init
+      changed_when: "'Terraform has been successfully initialized' in tf_init.stdout"
 
-    - name: Run terraform apply (auto-approve)
-      command: >
-        {{ terraform_bin }} apply -auto-approve 
-        -var='vmws_user={{ vmws_user }}'
-        -var='vmws_password={{ vmws_pass }}'
-        -var='iso_path=/home/vmadmin/iso/windows11.iso'
+    - name: Conditionally destroy existing VM if force_vm_recreate is true
+      command: "{{ terraform_bin }} destroy -auto-approve -var='vmws_user={{ vmws_user }}' -var='vmws_password={{ vmws_pass }}' -var='iso_path={{ iso_path }}'"
       args:
         chdir: "{{ terraform_dir }}"
       become_user: vmadmin
+      when: force_vm_recreate | bool
+      # This will destroy any existing VM before apply
+
+    - name: Run terraform apply (auto-approve)
+      command: >
+        {{ terraform_bin }} apply -auto-approve
+        -var='vmws_user={{ vmws_user }}'
+        -var='vmws_password={{ vmws_pass }}'
+        -var='iso_path={{ iso_path }}'
+      args:
+        chdir: "{{ terraform_dir }}"
+      become_user: vmadmin
+      register: tf_apply
+      changed_when: "'Apply complete' in tf_apply.stdout"

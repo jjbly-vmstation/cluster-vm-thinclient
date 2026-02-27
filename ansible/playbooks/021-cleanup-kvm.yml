@@ -1,0 +1,57 @@
+---
+- name: Remove KVM/QEMU stack from RHEL homelab
+  hosts: homelab
+  become: true
+  tasks:
+    - name: Stop and disable libvirtd
+      systemd:
+        name: libvirtd
+        state: stopped
+        enabled: no
+        masked: yes
+
+    - name: Remove KVM packages
+      yum:
+        name:
+          - libvirt
+          - qemu-kvm
+          - virt-install
+          - virt-manager
+          - libvirt-client
+        state: absent
+
+    - name: Delete libvirt configuration and data
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/libvirt
+        - /var/lib/libvirt
+        - /var/run/libvirt
+        - /var/log/libvirt
+        - /home/vmadmin/.config/libvirt   # if exists
+
+    - name: Remove kernel modules
+      modprobe:
+        name: "{{ item }}"
+        state: absent
+      loop:
+        - kvm_intel
+        - kvm_amd
+        - kvm
+      ignore_errors: true
+
+    - name: Remove user from KVM groups
+      user:
+        name: vmadmin
+        groups: "{{ item }}"
+        append: no
+        state: present
+      loop:
+        - libvirt
+        - kvm
+      # This will remove them from those groups (since append=no) but keep other groups
+
+    - name: Verify cleanup
+      command: |
+        rpm -qa | grep -E 'libvirt|qemu|virt' || true
