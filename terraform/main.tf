@@ -3,7 +3,7 @@ terraform {
   required_providers {
     libvirt = {
       source  = "dmacvicar/libvirt"
-      version = "0.9.1"
+      version = "0.9.2"   # or 0.9.1 – both use the same schema
     }
   }
 }
@@ -13,18 +13,28 @@ provider "libvirt" {
 }
 
 # ----------------------------------------------------------------------
-# Volumes (use capacity instead of size)
+# Volumes (OS and Data)
 # ----------------------------------------------------------------------
 resource "libvirt_volume" "windows_os" {
   name     = "${var.vm_name}-os.qcow2"
   pool     = var.pool_name
   capacity = var.os_disk_size_gb * 1024 * 1024 * 1024   # bytes
+  target = {
+    format = {
+      type = "qcow2"
+    }
+  }
 }
 
 resource "libvirt_volume" "windows_data" {
   name     = "${var.vm_name}-data.qcow2"
   pool     = var.pool_name
   capacity = var.data_disk_size_gb * 1024 * 1024 * 1024
+  target = {
+    format = {
+      type = "qcow2"
+    }
+  }
 }
 
 # ----------------------------------------------------------------------
@@ -32,99 +42,157 @@ resource "libvirt_volume" "windows_data" {
 # ----------------------------------------------------------------------
 resource "libvirt_domain" "windows" {
   name      = var.vm_name
-  type      = "kvm"                     # required argument
+  type      = "kvm"
+  vcpu      = var.vcpus
+  memory    = var.memory_mb
+  # optional memory_unit if you need something other than MiB
   autostart = true
 
-  vcpu   = var.vcpus
-  memory = var.memory_mb
-
-  # CPU configuration as a map argument
+  # CPU configuration
   cpu = {
     mode = "host-passthrough"
   }
 
-  # TPM as a map argument
-  tpm = {
-    backend_type    = "emulator"
-    backend_version = "2.0"
-  }
+  # OS configuration (UEFI, boot order, etc.)
+  os = {
+    type         = "hvm"
+    type_arch    = "x86_64"
+    type_machine = "q35"                       # matches your earlier "machine"
 
-  # Network interfaces as a list of maps
-  network_interface = [
-    {
-      network_name = var.network_name
-      mac          = var.mac_address
+    # Firmware (UEFI with Secure Boot)
+    loader          = var.firmware_path         # e.g. /.../OVMF_CODE.secboot.fd
+    loader_type     = "pflash"
+    loader_readonly = "yes"
+    loader_secure   = "yes"                     # enable Secure Boot
+
+    # Boot order: CDROM first, then disk
+    boot_devices = [
+      { dev = "cdrom" },
+      { dev = "hd" }
+    ]
+
+    # Boot menu
+    bootmenu = {
+      enable  = "yes"
+      timeout = "5000"
     }
-  ]
 
-  # Disks as a list of maps
-  disk = [
-    {
-      file = var.iso_path               # installation ISO
-    },
-    {
-      volume_id  = libvirt_volume.windows_os.id
-      target_bus = "sata"
-    },
-    {
-      volume_id  = libvirt_volume.windows_data.id
-      target_bus = "sata"
-    },
-    {
-      file = var.virtio_iso_path        # VirtIO drivers ISO
+    # NVRAM (UEFI variable store)
+    nv_ram = {
+      file     = var.nvram_file                  # path to copy of VARS (auto-generated if omitted)
+      template = var.nvram_template               # template VARS file (e.g. OVMF_VARS.fd)
+      # optional format block if needed
     }
-  ]
-
-  # NVRAM (UEFI var store) as a map argument
-  nvram = {
-    file     = var.nvram_file
-    template = var.nvram_template
   }
 
-  # Graphics as a map argument
-  graphics = {
-    type           = "vnc"
-    listen_type    = "address"
-    listen_address = "0.0.0.0"
-    autoport       = true
+  # Devices (disks, interfaces, TPM, graphics, video)
+  devices {
+    # Disks (list of objects)
+    disks = [
+      # Installation ISO (CDROM)
+      {
+        source = {
+          file = {
+            file = var.iso_path
+          }
+        }
+        target = {
+          dev = "sda"
+          bus = "sata"
+        }
+        type = "cdrom"   # or device = "cdrom" – check docs
+      },
+      # OS disk (from volume)
+      {
+        source = {
+          volume = {
+            pool   = var.pool_name
+            volume = libvirt_volume.windows_os.name
+          }
+        }
+        target = {
+          dev = "sdb"
+          bus = "sata"
+        }
+      },
+      # Data disk (from volume)
+      {
+        source = {
+          volume = {
+            pool   = var.pool_name
+            volume = libvirt_volume.windows_data.name
+          }
+        }
+        target = {
+          dev = "sdc"
+          bus = "sata"
+        }
+      },
+      # VirtIO drivers ISO (CDROM)
+      {
+        source = {
+          file = {
+            file = var.virtio_iso_path
+          }
+        }
+        target = {
+          dev = "sdd"
+          bus = "sata"
+        }
+        type = "cdrom"
+      }
+    ]
+
+    # Network interfaces (list of objects)
+    interfaces = [
+      {
+        source = {
+          network = {
+            network = var.network_name
+          }
+        }
+        mac  = var.mac_address
+        model = {
+          type = "virtio"
+        }
+        # wait_for_ip = {}  # optional
+      }
+    ]
+
+    # TPM 2.0 (list of objects)
+    tpms = [
+      {
+        backend = {
+          emulator = {}
+        }
+        # The version attribute is set at the TPM device level
+        version = "2.0"
+      }
+    ]
+
+    # Graphics (VNC)
+    graphics = [
+      {
+        type        = "vnc"
+        listen_type = "address"
+        listen_address = "0.0.0.0"
+        autoport    = true
+      }
+    ]
+
+    # Video (virtio)
+    videos = [
+      {
+        model = {
+          type = "virtio"
+        }
+      }
+    ]
   }
 
-  # Video as a map argument
-  video = {
-    type = "virtio"
-  }
-
-  # XML patching (still works as a map argument)
-  xml = {
-    xslt = <<EOF
-<?xml version="1.0" ?>
-<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
-  <xsl:output omit-xml-declaration="yes" indent="yes"/>
-  <xsl:template match="node()|@*">
-    <xsl:copy><xsl:apply-templates select="node()|@*"/></xsl:copy>
-  </xsl:template>
-  <xsl:template match="/domain/features">
-    <xsl:copy>
-      <xsl:apply-templates select="node()|@*"/>
-      <smm state="on"/>
-    </xsl:copy>
-  </xsl:template>
-  <xsl:template match="/domain/os/loader">
-    <xsl:copy>
-      <xsl:apply-templates select="@*"/>
-      <xsl:attribute name="secure">yes</xsl:attribute>
-      <xsl:apply-templates select="node()"/>
-    </xsl:copy>
-  </xsl:template>
-  <xsl:template match="/domain/os">
-    <xsl:copy>
-      <xsl:apply-templates select="node()|@*"/>
-      <boot dev='cdrom'/>
-      <boot dev='hd'/>
-      <bootmenu enable='yes' timeout='5000'/>
-    </xsl:copy>
-  </xsl:template>
-</xsl:stylesheet>
-EOF
+  # Features (SMM required for Secure Boot + TPM)
+  features = {
+    acpi = true
+    smm  = "on"   # must be string "on"/"off"
   }
 }
