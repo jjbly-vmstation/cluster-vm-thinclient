@@ -14,17 +14,29 @@
     iso_path: "/home/vmadmin/iso/en-us_windows_11_business_editions_version_25h2_updated_feb_2026_x64_dvd_9271bf68.iso"
 
   tasks:
-    # 1. PREFLIGHT & PREREQS
-    # 1. PREFLIGHT & PREREQS (With Version Sync)
-    - name: Ensure kernel-devel matches the running kernel
+    # 1. PREFLIGHT: ALIGN KERNEL AND HEADERS
+    - name: Ensure kernel and headers are updated to the latest version
       yum:
         name: 
-          - "kernel-devel-{{ ansible_kernel }}"
-          - "kernel-headers-{{ ansible_kernel }}"
-          - gcc
-          - make
-          - elfutils-libelf-devel
-          - expect
+          - kernel
+          - kernel-devel
+          - kernel-headers
+        state: latest
+      register: kernel_update
+
+    - name: Reboot homelab to apply new kernel (if updated)
+      reboot:
+        msg: "Rebooting to apply new kernel before compiling VMware modules"
+        reboot_timeout: 600
+      when: kernel_update.changed
+
+    - name: Refresh Ansible facts after potential reboot
+      setup:
+      when: kernel_update.changed
+
+    - name: Ensure build tools are present
+      yum:
+        name: [gcc, make, elfutils-libelf-devel, expect, wget, unzip]
         state: present
 
     # 2. INSTALLATION & KERNEL MODULES
@@ -33,12 +45,13 @@
       args:
         creates: /usr/lib/vmware
 
-    - name: Link kernel headers for VMware (The Workaround)
+    - name: Link kernel headers for VMware (Safely)
       file:
         src: "/usr/src/kernels/{{ ansible_kernel }}"
         dest: "/lib/modules/{{ ansible_kernel }}/build"
         state: link
         force: yes
+        follow: False # Suppresses the warning if run concurrently
 
     - name: Rebuild VMware Kernel Modules with explicit path
       shell: |
@@ -49,6 +62,10 @@
         - modconfig_output.rc != 0
         - "'Failed to setup build environment' in modconfig_output.stderr"
 
+
+
+
+        
     # 3. CONFIGURATION (Credentials must exist for the service to bind)
     - name: Configure vmrest credentials via expect
       shell: |
