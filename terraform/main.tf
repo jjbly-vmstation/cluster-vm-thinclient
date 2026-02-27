@@ -3,7 +3,7 @@ terraform {
   required_providers {
     libvirt = {
       source  = "dmacvicar/libvirt"
-      version = "0.9.3"
+      version = "~> 0.10.0"   # Use a modern version that supports Windows 11 features
     }
   }
 }
@@ -18,7 +18,7 @@ provider "libvirt" {
 resource "libvirt_volume" "windows_os" {
   name = "${var.vm_name}-os.qcow2"
   pool = var.pool_name
-  size = var.os_disk_size_gb * 1024 * 1024 * 1024
+  size = var.os_disk_size_gb * 1024 * 1024 * 1024   # bytes
 }
 
 resource "libvirt_volume" "windows_data" {
@@ -32,7 +32,7 @@ resource "libvirt_volume" "windows_data" {
 # ----------------------------------------------------------------------
 resource "libvirt_domain" "windows" {
   name      = var.vm_name
-  machine   = "q35"                     # Windows 11 requires Q35
+  machine   = "q35"                     # Required for Windows 11
   firmware  = var.firmware_path          # OVMF with Secure Boot support
   autostart = true
 
@@ -72,12 +72,12 @@ resource "libvirt_domain" "windows" {
     target_bus = "sata"
   }
 
-  # Disk 4: VirtIO drivers ISO (for virtio-gpu, virtio-net, etc.)
+  # Disk 4: VirtIO drivers ISO
   disk {
     file = var.virtio_iso_path
   }
 
-  # UEFI NVRAM – a copy of the template is created for this VM
+  # UEFI NVRAM (a copy of the template is created for this VM)
   nvram {
     file     = var.nvram_file
     template = var.nvram_template
@@ -97,7 +97,8 @@ resource "libvirt_domain" "windows" {
   }
 
   # --------------------------------------------------------------------
-  # XML patching (XSLT) – adds SMM, secure loader flag, boot order
+  # XML patching (XSLT) – adds SMM and ensures secure loader flag
+  # (These are still needed because the provider may not expose them)
   # --------------------------------------------------------------------
   xml {
     xslt = <<EOF
