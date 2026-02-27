@@ -22,8 +22,7 @@ resource "libvirt_volume" "windows_os" {
     prevent_destroy = true
   }
 }
-os_disk_size_gb   = 64
-data_disk_size_gb = 100
+
 # Data disk (persistent user data)
 resource "libvirt_volume" "windows_data" {
   name = "windows-data.qcow2"
