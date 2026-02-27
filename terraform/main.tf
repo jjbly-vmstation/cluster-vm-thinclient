@@ -1,4 +1,39 @@
-# Windows VM
+terraform {
+  required_version = ">= 1.5.0"
+  required_providers {
+    libvirt = {
+      source  = "dmacvicar/libvirt"
+      version = "0.8.0"
+    }
+  }
+}
+
+provider "libvirt" {
+  uri = var.libvirt_uri
+}
+
+# OS disk (Windows + activation)
+resource "libvirt_volume" "windows_os" {
+  name = "windows-os.qcow2"
+  pool = "default"
+  size = 68719476736
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+# Data disk (persistent user data)
+resource "libvirt_volume" "windows_data" {
+  name = "windows-data.qcow2"
+  pool = "default"
+  size = 107374182400
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
 resource "libvirt_domain" "windows" {
   name     = var.vm_name
   memory   = var.memory_mb
