@@ -56,21 +56,16 @@ resource "libvirt_domain" "windows" {
   # 1. Windows Installer ISO (Set to SATA)
   disk {
     file       = "/home/vmadmin/iso/en-us_windows_11_business_editions_version_25h2_updated_feb_2026_x64_dvd_9271bf68.iso"
-    bus        = "sata" # Use SATA instead of default IDE
-    boot_order = 1
   }
 
   # 2. OS Disk (Set to VirtIO for performance)
   disk {
     volume_id  = libvirt_volume.windows_os.id
-    bus        = "virtio" # VirtIO is best for the OS disk
-    boot_order = 2
   }
 
   # 3. VirtIO Drivers ISO (Set to SATA)
   disk {
     file = "/home/vmadmin/iso/virtio-win.iso"
-    bus  = "sata"
   }
 
   console {
@@ -100,20 +95,24 @@ resource "libvirt_domain" "windows" {
     type = "virtio"
   }
 
-  xml {
-    xslt = <<-EOF
+
+xml {
+    xslt = <<EOF
 <?xml version="1.0" ?>
 <xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
   <xsl:output omit-xml-declaration="yes" indent="yes"/>
+  
   <xsl:template match="node()|@*">
     <xsl:copy><xsl:apply-templates select="node()|@*"/></xsl:copy>
   </xsl:template>
+
   <xsl:template match="/domain/features">
     <xsl:copy>
       <xsl:apply-templates select="node()|@*"/>
       <smm state="on"/>
     </xsl:copy>
   </xsl:template>
+
   <xsl:template match="/domain/os/loader">
     <xsl:copy>
       <xsl:apply-templates select="@*"/>
@@ -122,6 +121,15 @@ resource "libvirt_domain" "windows" {
       <xsl:apply-templates select="node()"/>
     </xsl:copy>
   </xsl:template>
+
+  <xsl:template match="/domain/devices/disk/target[@bus='ide']">
+    <target bus='sata'>
+      <xsl:attribute name="dev">
+        <xsl:value-of select="@dev"/>
+      </xsl:attribute>
+    </target>
+  </xsl:template>
+
   <xsl:template match="/domain/os">
     <xsl:copy>
       <xsl:apply-templates select="node()|@*"/>
@@ -133,4 +141,5 @@ resource "libvirt_domain" "windows" {
 </xsl:stylesheet>
 EOF
   }
+
 }
