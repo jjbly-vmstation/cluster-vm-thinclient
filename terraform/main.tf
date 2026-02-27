@@ -74,7 +74,7 @@ resource "libvirt_domain" "windows" {
     nv_ram = {
       file     = var.nvram_file
       template = var.nvram_template
-      # format = { type = "raw" }   # uncomment if needed
+      format   = { type = "raw" }
     }
   }
 
