@@ -15,20 +15,39 @@
 
   tasks:
     # 1. PREFLIGHT & PREREQS
-    - name: Ensure required packages are installed
+    # 1. PREFLIGHT & PREREQS (With Version Sync)
+    - name: Ensure kernel-devel matches the running kernel
       yum:
-        name: [kernel-devel, kernel-headers, gcc, make, elfutils-libelf-devel, unzip, expect, wget]
+        name: 
+          - "kernel-devel-{{ ansible_kernel }}"
+          - "kernel-headers-{{ ansible_kernel }}"
+          - gcc
+          - make
+          - elfutils-libelf-devel
+          - expect
         state: present
 
-    # 2. INSTALLATION (Must happen before Service Creation)
+    # 2. INSTALLATION & KERNEL MODULES
     - name: Install VMware Workstation from bundle
       command: "/home/vmadmin/iso/VMware-Workstation-Full-25H2u1-25219725.x86_64.bundle --console --eulas-agreed --required"
       args:
         creates: /usr/lib/vmware
 
-    - name: Rebuild VMware Kernel Modules
-      command: vmware-modconfig --console --install-all
-      changed_when: false
+    - name: Link kernel headers for VMware (The Workaround)
+      file:
+        src: "/usr/src/kernels/{{ ansible_kernel }}"
+        dest: "/lib/modules/{{ ansible_kernel }}/build"
+        state: link
+        force: yes
+
+    - name: Rebuild VMware Kernel Modules with explicit path
+      shell: |
+        export env VMWARE_USE_SHIPPED_LIBS=1
+        vmware-modconfig --console --install-all
+      register: modconfig_output
+      failed_when: 
+        - modconfig_output.rc != 0
+        - "'Failed to setup build environment' in modconfig_output.stderr"
 
     # 3. CONFIGURATION (Credentials must exist for the service to bind)
     - name: Configure vmrest credentials via expect
