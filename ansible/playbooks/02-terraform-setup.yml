@@ -7,44 +7,44 @@
     terraform_bin: "/usr/local/bin/terraform"
     terraform_dir: "/home/vmadmin/vmstation-org/cluster-vm-thinclient/terraform"
     terraform_src_dir: "{{ playbook_dir }}/../../terraform"
-    force_vm_recreate: false
-    vm_name: "windows-11-enterprise"
     vmws_user: "vmadmin"
-    vmws_pass: "VMwareAPI123!"  # Override via group_vars/all/local.yml
-    vmware_bundle_url: ""        # Set this if you want automatic installation
+    vmws_pass: "VMwareAPI123!"
     vmrest_port: 8697
     vm_admin_user: "vmadmin"
+    iso_path: "/home/vmadmin/iso/en-us_windows_11_business_editions_version_25h2_updated_feb_2026_x64_dvd_9271bf68.iso"
 
   tasks:
-    # ============================================================
-    # Preflight checks
-    # ============================================================
-    - name: Set ISO path (Hardcoded)
-      set_fact:
-        iso_path: "/home/vmadmin/iso/en-us_windows_11_business_editions_version_25h2_updated_feb_2026_x64_dvd_9271bf68.iso"
-
-    - name: Verify that the Windows ISO exists
-      stat:
-        path: "{{ iso_path }}"
-      register: iso_file
-      failed_when: not iso_file.stat.exists
-
-    - name: Ensure required packages are installed (prerequisites)
+    # 1. PREFLIGHT & PREREQS
+    - name: Ensure required packages are installed
       yum:
-        name:
-          - kernel-devel
-          - kernel-headers
-          - gcc
-          - make
-          - glibc-headers
-          - elfutils-libelf-devel
-          - unzip
-          - wget
-          - expect
+        name: [kernel-devel, kernel-headers, gcc, make, elfutils-libelf-devel, unzip, expect, wget]
         state: present
-      when: ansible_os_family == "RedHat"
 
-  # ##. SYSTEMD SERVICE CREATION (The Robust Fix)
+    # 2. INSTALLATION (Must happen before Service Creation)
+    - name: Install VMware Workstation from bundle
+      command: "/home/vmadmin/iso/VMware-Workstation-Full-25H2u1-25219725.x86_64.bundle --console --eulas-agreed --required"
+      args:
+        creates: /usr/lib/vmware
+
+    - name: Rebuild VMware Kernel Modules
+      command: vmware-modconfig --console --install-all
+      changed_when: false
+
+    # 3. CONFIGURATION (Credentials must exist for the service to bind)
+    - name: Configure vmrest credentials via expect
+      shell: |
+        expect -c '
+        spawn /usr/bin/vmrest -C
+        expect "Username:"
+        send "{{ vmws_user }}\r"
+        expect "Password:"
+        send "{{ vmws_pass }}\r"
+        expect eof
+        '
+      no_log: true
+      changed_when: true
+
+    # 4. SYSTEMD SERVICE MANAGEMENT
     - name: Create systemd unit file for vmrest
       copy:
         dest: /etc/systemd/system/vmrest.service
@@ -56,7 +56,6 @@
           [Service]
           Type=simple
           User=root
-          # Required for RHEL shared libraries
           Environment=LD_LIBRARY_PATH=/usr/lib/vmware/lib
           ExecStart=/usr/bin/vmrest -i 0.0.0.0 -p {{ vmrest_port }}
           Restart=on-failure
@@ -74,189 +73,20 @@
         name: vmrest
         state: restarted
         enabled: yes
-        daemon_reload: yes
 
-    - name: Wait for vmrest to be ready (port {{ vmrest_port }})
+    - name: Wait for vmrest to be ready
       wait_for:
         port: "{{ vmrest_port }}"
-        delay: 2
         timeout: 30
 
-    # ============================================================
-    # VMware Workstation installation (if not present)
-    # ============================================================
-    - name: Define VMware Workstation installation check path
-      set_fact:
-        vmware_installed_check: /usr/lib/vmware
-
-    - name: Check if VMware Workstation is already installed
-      stat:
-        path: "{{ vmware_installed_check }}"
-      register: vmware_installed
-
-    - name: Install VMware Workstation from bundle
-      command: "/home/vmadmin/iso/VMware-Workstation-Full-25H2u1-25219725.x86_64.bundle --console --eulas-agreed --required"
-      args:
-        creates: "{{ vmware_installed_check }}"
-      when:
-        - not vmware_installed.stat.exists
-
-    - name: Verify vmrest is available
-      command: which vmrest
-      register: vmrest_check
-      changed_when: false
-      failed_when: vmrest_check.rc != 0
-
-    # ============================================================
-    # Terraform installation
-    # ============================================================
-    - name: Check if Terraform binary exists
-      stat:
-        path: "{{ terraform_bin }}"
-      register: tf_bin_check
-
-    - name: Check current Terraform version
-      command: "{{ terraform_bin }} version"
-      register: tf_version_check
-      changed_when: false
-      ignore_errors: true
-      when: tf_bin_check.stat.exists
-
-    - name: Download Terraform binary to controller
-      get_url:
-        url: "https://releases.hashicorp.com/terraform/{{ terraform_version }}/terraform_{{ terraform_version }}_linux_amd64.zip"
-        dest: "/tmp/terraform_{{ terraform_version }}.zip"
-        mode: '0644'
-      delegate_to: localhost
-      become: false
-      register: download_terraform
-      until: download_terraform is success
-      retries: 3
-      delay: 5
-      when: not tf_bin_check.stat.exists or (tf_version_check.stdout is defined and terraform_version not in tf_version_check.stdout)
-
-    - name: Ensure unzip is installed
-      package:
-        name: unzip
-        state: present
-
-    - name: Unzip Terraform binary
-      unarchive:
-        src: "/tmp/terraform_{{ terraform_version }}.zip"
-        dest: /usr/local/bin/
-        remote_src: no
-      when: not tf_bin_check.stat.exists or (tf_version_check.stdout is defined and terraform_version not in tf_version_check.stdout)
-
-    - name: Ensure Terraform is executable
-      file:
-        path: "{{ terraform_bin }}"
-        mode: '0755'
-
-    - name: Verify Terraform version
-      command: "{{ terraform_bin }} --version"
-      register: terraform_version_output
-      changed_when: false
-
-    # ============================================================
-    # Prepare Terraform working directory
-    # ============================================================
-    - name: Create Terraform directory on homelab
-      file:
-        path: "{{ terraform_dir }}"
-        state: directory
-        owner: "{{ vm_admin_user }}"
-        group: "{{ vm_admin_user }}"
-        mode: '0755'
-
-    - name: Copy Terraform files from controller to homelab
-      become: false
-      synchronize:
-        src: "{{ terraform_src_dir }}/"
-        dest: "{{ terraform_dir }}/"
-        mode: push
-        rsync_path: "sudo rsync"
-        rsync_opts:
-          - "--exclude=.terraform"
-          - "--exclude=.terraform.lock.hcl"
-
-    - name: Ensure Terraform directory and files are owned by vmadmin
-      file:
-        path: "{{ terraform_dir }}"
-        state: directory
-        owner: "{{ vm_admin_user }}"
-        group: "{{ vm_admin_user }}"
-        recurse: yes
-
-
-  # THIS SECTION WAS MISSING
-  handlers:
-    - name: Reload Systemd
-      systemd:
-        daemon_reload: yes
-
-
-    # ============================================================
-    # VMware Workstation REST API (vmrest) configuration
-    # ============================================================
-    - name: Configure vmrest credentials
-      shell: |
-        expect -c '
-        spawn /usr/bin/vmrest -C
-        expect "Username:"
-        send "{{ vmws_user }}\r"
-        expect "Password:"
-        send "{{ vmws_pass }}\r"
-        expect eof
-        '
-      register: vmrest_creds
-      changed_when: vmrest_creds.rc == 0
-
-    - name: Attempt to start vmrest via systemd (if service exists)
-      systemd:
-        name: vmware-workstation-server
-        state: started
-        enabled: yes
-      ignore_errors: true
-      register: systemd_result
-
-    - name: Start vmrest as background process (fallback)
-      shell: |
-        nohup /usr/bin/vmrest > /var/log/vmrest.log 2>&1 &
-      async: 10
-      poll: 0
-      when: systemd_result is failed or systemd_result is skipped
-
-    - name: Wait for vmrest to be ready (port {{ vmrest_port }})
-      wait_for:
-        port: "{{ vmrest_port }}"
-        host: localhost
-        delay: 5
-        timeout: 30
-      register: vmrest_ready
-
-    # ============================================================
-    # Terraform execution
-    # ============================================================
+    # 5. TERRAFORM DEPLOYMENT
     - name: Run terraform init
-      command: "{{ terraform_bin }} init -upgrade -reconfigure"
+      command: "{{ terraform_bin }} init -upgrade"
       args:
         chdir: "{{ terraform_dir }}"
       become_user: "{{ vm_admin_user }}"
-      register: tf_init
-      changed_when: "'Terraform has been successfully initialized' in tf_init.stdout"
 
-    - name: Conditionally destroy existing VM if force_vm_recreate is true
-      command: >
-        {{ terraform_bin }} destroy -auto-approve
-        -var='vmws_user={{ vmws_user }}'
-        -var='vmws_password={{ vmws_pass }}'
-        -var='iso_path={{ iso_path }}'
-      args:
-        chdir: "{{ terraform_dir }}"
-      become_user: "{{ vm_admin_user }}"
-      when: force_vm_recreate | bool
-
-    - name: Run terraform apply (auto-approve)
+    - name: Run terraform apply
       command: >
         {{ terraform_bin }} apply -auto-approve
         -var='vmws_user={{ vmws_user }}'
@@ -265,5 +95,8 @@
       args:
         chdir: "{{ terraform_dir }}"
       become_user: "{{ vm_admin_user }}"
-      register: tf_apply
-      changed_when: "'Apply complete' in tf_apply.stdout"
+
+  handlers:
+    - name: Reload Systemd
+      systemd:
+        daemon_reload: yes
