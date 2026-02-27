@@ -40,6 +40,7 @@
           - elfutils-libelf-devel
           - unzip
           - wget
+          - expect
         state: present
       when: ansible_os_family == "RedHat"
 
@@ -152,7 +153,15 @@
     # VMware Workstation REST API (vmrest) configuration
     # ============================================================
     - name: Configure vmrest credentials
-      shell: "printf '{{ vmws_user }}\n{{ vmws_pass }}\n' | /usr/bin/vmrest -C"
+      shell: |
+        expect -c '
+        spawn /usr/bin/vmrest -C
+        expect "Username:"
+        send "{{ vmws_user }}\r"
+        expect "Password:"
+        send "{{ vmws_pass }}\r"
+        expect eof
+        '
       register: vmrest_creds
       changed_when: vmrest_creds.rc == 0
 
