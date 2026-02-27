@@ -187,6 +187,14 @@
         group: "{{ vm_admin_user }}"
         recurse: yes
 
+
+  # THIS SECTION WAS MISSING
+  handlers:
+    - name: Reload Systemd
+      systemd:
+        daemon_reload: yes
+
+
     # ============================================================
     # VMware Workstation REST API (vmrest) configuration
     # ============================================================
