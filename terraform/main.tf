@@ -51,32 +51,30 @@ resource "libvirt_domain" "windows" {
     mode = "host-passthrough"
   }
 
-  os = {
-    type         = "hvm"
-    type_arch    = "x86_64"
-    type_machine = "q35"
+os = {
+  type         = "hvm"
+  type_arch    = "x86_64"
+  type_machine = "q35"
+  firmware     = "efi"                      # required for UEFI
+  loader       = var.firmware_path
+  loader_type  = "pflash"
+  loader_readonly = true                     # boolean, not string
+  # loader_secure is omitted – may be inferred
 
-    loader          = var.firmware_path
-    loader_type     = "pflash"
-    loader_readonly = "yes"
-    loader_secure   = "yes"
+  boot_devices = ["cdrom", "hd"]             # list of strings, not objects
 
-    boot_devices = [
-      { dev = "cdrom" },
-      { dev = "hd" }
-    ]
-
-    bootmenu = {
-      enable  = "yes"
-      timeout = "5000"
-    }
-
-    nv_ram = {
-      file     = var.nvram_file
-      template = var.nvram_template
-      format   = { type = "raw" }
-    }
+  bootmenu = {
+    enable  = "yes"
+    timeout = "5000"
   }
+
+  nv_ram = {
+    nv_ram   = var.nvram_file                # key is nv_ram, not file
+    template = var.nvram_template
+    # no format block
+  }
+}
+
 
   # Devices (disks, interfaces, TPM, graphics, video)
   devices = {
