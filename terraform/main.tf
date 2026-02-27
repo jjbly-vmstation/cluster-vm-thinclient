@@ -55,13 +55,11 @@ resource "libvirt_domain" "windows" {
   # 1. Windows Installer ISO
   disk {
     file       = "/home/vmadmin/iso/en-us_windows_11_business_editions_version_25h2_updated_feb_2026_x64_dvd_9271bf68.iso"
-    boot_order = 1
   }
 
   # 2. OS Disk
   disk {
     volume_id  = libvirt_volume.windows_os.id
-    boot_order = 2
   }
 
   # 3. VirtIO Drivers
@@ -97,7 +95,7 @@ resource "libvirt_domain" "windows" {
   }
 
   xml {
-    xslt = <<EOF
+    xslt = <<-EOF
 <?xml version="1.0" ?>
 <xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
   <xsl:output omit-xml-declaration="yes" indent="yes"/>
