@@ -1,11 +1,11 @@
 variable "libvirt_uri" {
-  description = "Libvirt connection URI (e.g., qemu:///system or qemu+ssh://...)"
+  description = "Libvirt connection URI"
   type        = string
   default     = "qemu:///system"
 }
 
 variable "pool_name" {
-  description = "Libvirt storage pool name"
+  description = "Storage pool name"
   type        = string
   default     = "default"
 }
@@ -17,7 +17,7 @@ variable "vm_name" {
 }
 
 variable "memory_mb" {
-  description = "VM memory in MB"
+  description = "Memory in MB"
   type        = number
   default     = 12288
 }
@@ -41,44 +41,42 @@ variable "data_disk_size_gb" {
 }
 
 variable "iso_path" {
-  description = "Full path to Windows 11 installation ISO"
+  description = "Path to Windows 11 ISO"
   type        = string
 }
 
 variable "virtio_iso_path" {
-  description = "Full path to virtio-win ISO (drivers for virtio devices)"
+  description = "Path to virtio-win ISO"
   type        = string
-  default     = "/home/vmadmin/iso/virtio-win.iso"   # matches your listing
+  default     = "/home/vmadmin/iso/virtio-win.iso"
 }
 
 variable "network_name" {
-  description = "Libvirt network name (default NAT) or bridge (e.g., br0)"
+  description = "Libvirt network name"
   type        = string
   default     = "default"
 }
 
 variable "mac_address" {
-  description = "Pinned MAC address for stable Windows activation"
+  description = "Pinned MAC address"
   type        = string
   default     = "52:54:00:00:f0:0d"
 }
 
 variable "firmware_path" {
-  description = "Path to OVMF Secure Boot firmware code"
+  description = "Path to OVMF firmware with Secure Boot"
   type        = string
-  # Using the system path (you can override if you copied the file elsewhere)
-  default     = "/usr/share/edk2/ovmf/OVMF_CODE.secboot.fd"
+  default     = "/home/vmadmin/disks/firmware/OVMF_CODE.secboot.fd"
 }
 
 variable "nvram_template" {
-  description = "Path to OVMF variables template (with Secure Boot keys)"
+  description = "Path to OVMF vars template"
   type        = string
-  # System provides OVMF.qemuvars.fd as a suitable template
-  default     = "/usr/share/edk2/ovmf/OVMF.qemuvars.fd"
+  default     = "/home/vmadmin/disks/firmware/OVMF_VARS.fd"
 }
 
 variable "nvram_file" {
-  description = "Path where the VM‑specific NVRAM copy will be stored"
+  description = "Path to VM‑specific NVRAM file"
   type        = string
   default     = "/home/vmadmin/disks/windows-vars.fd"
 }
