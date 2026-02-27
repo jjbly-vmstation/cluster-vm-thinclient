@@ -3,7 +3,7 @@ terraform {
   required_providers {
     libvirt = {
       source  = "dmacvicar/libvirt"
-      version = "0.9.1"   # Exact version of the new, rewritten provider
+      version = "0.9.1"
     }
   }
 }
@@ -13,18 +13,18 @@ provider "libvirt" {
 }
 
 # ----------------------------------------------------------------------
-# Volumes (OS and Data)
+# Volumes (use capacity instead of size)
 # ----------------------------------------------------------------------
 resource "libvirt_volume" "windows_os" {
-  name = "${var.vm_name}-os.qcow2"
-  pool = var.pool_name
-  size = var.os_disk_size_gb * 1024 * 1024 * 1024   # bytes (supported in 0.9.1)
+  name     = "${var.vm_name}-os.qcow2"
+  pool     = var.pool_name
+  capacity = var.os_disk_size_gb * 1024 * 1024 * 1024   # bytes
 }
 
 resource "libvirt_volume" "windows_data" {
-  name = "${var.vm_name}-data.qcow2"
-  pool = var.pool_name
-  size = var.data_disk_size_gb * 1024 * 1024 * 1024
+  name     = "${var.vm_name}-data.qcow2"
+  pool     = var.pool_name
+  capacity = var.data_disk_size_gb * 1024 * 1024 * 1024
 }
 
 # ----------------------------------------------------------------------
@@ -32,94 +32,83 @@ resource "libvirt_volume" "windows_data" {
 # ----------------------------------------------------------------------
 resource "libvirt_domain" "windows" {
   name      = var.vm_name
-  machine   = "q35"                     # Native Q35 support
-  firmware  = var.firmware_path          # Native UEFI firmware with Secure Boot
+  type      = "kvm"                     # required argument
   autostart = true
 
   vcpu   = var.vcpus
   memory = var.memory_mb
 
-  cpu {
-    mode = "host-passthrough"            # Native CPU block
+  # CPU configuration as a map argument
+  cpu = {
+    mode = "host-passthrough"
   }
 
-  # TPM 2.0 – native block
-  tpm {
+  # TPM as a map argument
+  tpm = {
     backend_type    = "emulator"
     backend_version = "2.0"
   }
 
-  # Network
-  network_interface {
-    network_name = var.network_name
-    mac          = var.mac_address
-  }
+  # Network interfaces as a list of maps
+  network_interface = [
+    {
+      network_name = var.network_name
+      mac          = var.mac_address
+    }
+  ]
 
-  # Disk 1: Windows installation ISO
-  disk {
-    file = var.iso_path
-  }
+  # Disks as a list of maps
+  disk = [
+    {
+      file = var.iso_path               # installation ISO
+    },
+    {
+      volume_id  = libvirt_volume.windows_os.id
+      target_bus = "sata"
+    },
+    {
+      volume_id  = libvirt_volume.windows_data.id
+      target_bus = "sata"
+    },
+    {
+      file = var.virtio_iso_path        # VirtIO drivers ISO
+    }
+  ]
 
-  # Disk 2: OS disk – SATA bus for driver‑free installation
-  disk {
-    volume_id  = libvirt_volume.windows_os.id
-    target_bus = "sata"
-  }
-
-  # Disk 3: Data disk – also SATA
-  disk {
-    volume_id  = libvirt_volume.windows_data.id
-    target_bus = "sata"
-  }
-
-  # Disk 4: VirtIO drivers ISO
-  disk {
-    file = var.virtio_iso_path
-  }
-
-  # UEFI NVRAM – native block
-  nvram {
+  # NVRAM (UEFI var store) as a map argument
+  nvram = {
     file     = var.nvram_file
     template = var.nvram_template
   }
 
-  # Graphics (VNC)
-  graphics {
+  # Graphics as a map argument
+  graphics = {
     type           = "vnc"
     listen_type    = "address"
     listen_address = "0.0.0.0"
     autoport       = true
   }
 
-  # Video – virtio (drivers from the attached ISO)
-  video {
+  # Video as a map argument
+  video = {
     type = "virtio"
   }
 
-  # --------------------------------------------------------------------
-  # Minimal XML patching (XSLT) for SMM and boot order
-  # (These are still not exposed natively in 0.9.1)
-  # --------------------------------------------------------------------
-  xml {
+  # XML patching (still works as a map argument)
+  xml = {
     xslt = <<EOF
 <?xml version="1.0" ?>
 <xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
   <xsl:output omit-xml-declaration="yes" indent="yes"/>
-
-  <!-- Identity transform -->
   <xsl:template match="node()|@*">
     <xsl:copy><xsl:apply-templates select="node()|@*"/></xsl:copy>
   </xsl:template>
-
-  <!-- Add SMM feature (required for Secure Boot + TPM) -->
   <xsl:template match="/domain/features">
     <xsl:copy>
       <xsl:apply-templates select="node()|@*"/>
       <smm state="on"/>
     </xsl:copy>
   </xsl:template>
-
-  <!-- Ensure loader has secure='yes' (firmware path already points to secure one, but double‑check) -->
   <xsl:template match="/domain/os/loader">
     <xsl:copy>
       <xsl:apply-templates select="@*"/>
@@ -127,8 +116,6 @@ resource "libvirt_domain" "windows" {
       <xsl:apply-templates select="node()"/>
     </xsl:copy>
   </xsl:template>
-
-  <!-- Set boot order: CDROM first, then hard disk, show boot menu -->
   <xsl:template match="/domain/os">
     <xsl:copy>
       <xsl:apply-templates select="node()|@*"/>
