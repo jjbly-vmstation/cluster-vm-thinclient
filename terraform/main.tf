@@ -3,7 +3,7 @@ terraform {
   required_providers {
     libvirt = {
       source  = "dmacvicar/libvirt"
-      version = ">= 0.11.0"   # Use a modern version that supports Windows 11 features
+      version = "~= 0.11.0"   # Use a modern version that supports Windows 11 features
     }
   }
 }
