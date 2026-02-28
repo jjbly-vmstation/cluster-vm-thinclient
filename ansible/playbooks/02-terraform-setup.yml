@@ -75,9 +75,7 @@
           # Nested library fix for RHEL
           Environment="LD_LIBRARY_PATH=/usr/lib/vmware/lib/libvmwarebase.so:/usr/lib/vmware/lib/libvnetlib.so:/usr/lib/vmware/lib/libgcc_s.so.1:/usr/lib/vmware/lib"
           Environment="VMWARE_USE_SHIPPED_LIBS=1"
-          Environment="VMREST_IP=0.0.0.0"
-          Environment="VMREST_PORT=8697"
-          ExecStart=/usr/bin/vmrest
+          ExecStart=/usr/bin/vmrest -p 8697
           Restart=on-failure
           RestartSec=5
 
@@ -92,10 +90,10 @@
         enabled: yes
         daemon_reload: yes
 
-    - name: Wait for vmrest to be ready on external port
+    - name: Wait for vmrest to be ready on port {{ vmrest_port }}
       wait_for:
-        host: "{{ ansible_host }}" # This uses 192.168.4.62 from your inventory
-        port: 8697
+        port: "{{ vmrest_port }}"
+        delay: 2
         timeout: 30
 
     # 5. TERRAFORM DEPLOYMENT
