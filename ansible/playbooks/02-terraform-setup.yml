@@ -2,12 +2,12 @@
 - name: Setup VMware Workstation Environment on RHEL Homelab
   hosts: homelab
   become: true
+  vars_files:
+    - "/opt/vmstation-org/cluster-setup/ansible/inventory/group_vars/compute_nodes.yml"
   vars:
     terraform_version: "1.5.0"
     terraform_bin: "/usr/local/bin/terraform"
     terraform_dir: "/home/vmadmin/vmstation-org/cluster-vm-thinclient/terraform"
-    vars_files:
-    - "/opt/vmstation-org/cluster-setup/ansible/inventory/group_vars/compute_nodes.yml"
     # Credentials from your manual setup
     vmws_user: "jashandeepjustinbains"
     vmrest_port: 8697
