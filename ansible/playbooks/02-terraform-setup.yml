@@ -6,116 +6,47 @@
     terraform_version: "1.5.0"
     terraform_bin: "/usr/local/bin/terraform"
     terraform_dir: "/home/vmadmin/vmstation-org/cluster-vm-thinclient/terraform"
-    terraform_src_dir: "{{ playbook_dir }}/../../terraform"
-    vmws_user: "vmadmin"
-    vmws_pass: "VMwareAPI123!"
+    # Credentials from your manual setup
+    vmws_user: "jashandeepjustinbains"
     vmrest_port: 8697
     vm_admin_user: "vmadmin"
     iso_path: "/home/vmadmin/iso/en-us_windows_11_business_editions_version_25h2_updated_feb_2026_x64_dvd_9271bf68.iso"
 
   tasks:
 
-    # 1. CLEAN THE SLATE
-    - name: Check if VMware is already installed
+    # --- PREFLIGHT CHECKS ---
+    - name: Verify VMware kernel modules are loaded
+      shell: lsmod | grep -E "vmmon|vmnet"
+      register: vmware_modules
+      failed_when: vmware_modules.rc != 0
+      changed_when: false
+
+    - name: Check for existence of critical nested library folders
       stat:
-        path: /usr/bin/vmware-installer
-      register: vm_installer
+        path: "/usr/lib/vmware/lib/libvmwarebase.so"
+      register: lib_base_folder
+      failed_when: not lib_base_folder.stat.isdir
 
-    - name: Uninstall existing corrupted VMware installation
-      command: /usr/bin/vmware-installer -u vmware-workstation --yes
-      when: vm_installer.stat.exists
-      ignore_errors: true # Ignore if it's so broken it won't uninstall
-
-    - name: Purge corrupted library residues
-      file:
-        path: /usr/lib/vmware
-        state: absent
-
-    # 2. THE CLEAN INSTALL
-    - name: Install VMware Workstation (Clean Run)
-      command: "/home/vmadmin/iso/VMware-Workstation-Full-25H2u1-25219725.x86_64.bundle --console --eulas-agreed --required"
-      args:
-        creates: /usr/lib/vmware/bin/vmware # Only runs if the binary is missing
-
-    # 3. VERIFICATION (Fail fast if the installer lied)
-    - name: Verify libgcc_s.so.1 is a file, not a directory
+    - name: Validate vmrest binary path
       stat:
-        path: /usr/lib/vmware/lib/libgcc_s.so.1
-      register: lib_check
-      failed_when: lib_check.stat.isdir
+        path: "/usr/bin/vmrest"
+      register: vmrest_bin
+      failed_when: not vmrest_bin.stat.exists
 
+    - name: Ensure ~/.vmrestcfg exists for the API user
+      stat:
+        path: "/home/{{ vmws_user }}/.vmrestcfg"
+      register: vmrest_config
+      failed_when: not vmrest_config.stat.exists
+      become_user: "{{ vmws_user }}"
 
-
-    # 1. DETERMINISTIC KERNEL ALIGNMENT
-    - name: Detect running kernel version
-      set_fact:
-        running_kernel: "{{ ansible_kernel }}"
-
-    - name: Ensure exact matching build environment is present
-      yum:
-        name:
-          - "kernel-devel-{{ running_kernel }}"
-          - "kernel-headers-{{ running_kernel }}"
-          - gcc
-          - make
-          - elfutils-libelf-devel
+    # 1. CLEANUP / PRE-REQUISITES
+    - name: Ensure expect is installed for credential management
+      package:
+        name: expect
         state: present
-      register: kernel_pkg_result
-      ignore_errors: true
 
-    - name: Fail if matching headers are unavailable
-      fail:
-        msg: |
-          FATAL: Matching headers for {{ running_kernel }} not found in repositories.
-          Standard Engineering Practice: Ensure your base image (Golden Image) 
-          is pre-synced or use a local Satellite/Repo mirror with legacy kernels.
-      when: kernel_pkg_result.failed
-
-    # 2. TARGETED MODULE COMPILATION
-    - name: Rebuild VMware Kernel Modules
-      shell: |
-        export VMWARE_USE_SHIPPED_LIBS=1
-        vmware-modconfig --console --install-all \
-          --with-kernel-headers=/usr/src/kernels/{{ running_kernel }}
-      register: modconfig_output
-      # Industry standard: don't just check RC 1, check the stderr for environment issues
-      failed_when: 
-        - modconfig_output.rc != 0
-        - "'Failed to setup build environment' in modconfig_output.stderr"
-
-
-
-
-    # 3. BULK LIBRARY SANITIZATION (The "Nuclear" Option)
-    - name: Convert all fake VMware library directories to system symlinks
-      shell: |
-        for dir in /usr/lib/vmware/lib/*.so*; do
-          if [ -d "$dir" ] && [ ! -L "$dir" ]; then
-            libname=$(basename "$dir")
-            rm -rf "$dir"
-            # Attempt to link to system lib64 version
-            if [ -f "/lib64/$libname" ]; then
-              ln -s "/lib64/$libname" "$dir"
-            else
-              # Fallback: if not in lib64, some VMware libs might be elsewhere
-              # or unique to VMware. We log these but keep moving.
-              echo "Warning: No system equivalent for $libname" >> /var/log/vmware-fix.log
-            fi
-          fi
-        done
-      args:
-        executable: /bin/bash
-      register: bulk_fix
-      changed_when: true
-
-    - name: Ensure standard C++ library is correctly linked (Common RHEL pitfall)
-      file:
-        src: /lib64/libstdc++.so.6
-        dest: /usr/lib/vmware/lib/libstdc++.so.6
-        state: link
-        force: yes
-
-    # 3. CONFIGURATION (Credentials must exist for the service to bind)
+    # 2. CONFIGURATION (Using the specific user from our manual fix)
     - name: Configure vmrest credentials via expect
       shell: |
         expect -c '
@@ -127,9 +58,10 @@
         expect eof
         '
       no_log: true
-      changed_when: true
-    # 4. SYSTEMD SERVICE MANAGEMENT
-    - name: Create systemd unit file for vmrest
+      changed_when: false # Only run if ~/.vmrestcfg is missing (ideally)
+
+    # 3. THE CRITICAL SYSTEMD REFACTOR
+    - name: Create systemd unit file with Nested Library Path fix
       copy:
         dest: /etc/systemd/system/vmrest.service
         content: |
@@ -139,9 +71,10 @@
 
           [Service]
           Type=simple
-          User=root
-          # Explicitly include all VMware lib paths for RHEL stability
-          Environment="LD_LIBRARY_PATH=/usr/lib/vmware/lib:/usr/lib/vmware/lib/libconf"
+          User={{ vmws_user }}
+          # FIX: Explicitly point to the FOLDERS to avoid Error 21
+          Environment="LD_LIBRARY_PATH=/usr/lib/vmware/lib/libvmwarebase.so:/usr/lib/vmware/lib/libvnetlib.so:/usr/lib/vmware/lib/libgcc_s.so.1:/usr/lib/vmware/lib"
+          Environment="VMWARE_USE_SHIPPED_LIBS=1"
           ExecStart=/usr/bin/vmrest -i 0.0.0.0 -p {{ vmrest_port }}
           Restart=on-failure
           RestartSec=5
@@ -150,27 +83,22 @@
           WantedBy=multi-user.target
       notify: Reload Systemd
 
-    - name: Ensure port {{ vmrest_port }} is open in firewalld
-      firewalld:
-        port: "{{ vmrest_port }}/tcp"
-        permanent: yes
-        state: enabled
-        immediate: yes
-      ignore_errors: true # In case firewalld isn't running
+    - name: Force Systemd Reload immediately
+      meta: flush_handlers
 
-    - name: Ensure vmrest is enabled and running
+    # 4. SERVICE PERSISTENCE
+    - name: Ensure vmrest is enabled and running with the new config
       systemd:
         name: vmrest
         state: restarted
         enabled: yes
-        daemon_reload: yes
 
-    - name: Wait for vmrest to be ready
+    - name: Wait for vmrest to be ready on port {{ vmrest_port }}
       wait_for:
-        host: 0.0.0.0
         port: "{{ vmrest_port }}"
-        timeout: 45
-        msg: "Timeout waiting for vmrest. Check 'journalctl -u vmrest' on the host."
+        delay: 2
+        timeout: 30
+
     # 5. TERRAFORM DEPLOYMENT
     - name: Run terraform init
       command: "{{ terraform_bin }} init -upgrade"
