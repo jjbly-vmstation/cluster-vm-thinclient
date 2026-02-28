@@ -35,7 +35,7 @@
 
     - name: Ensure ~/.vmrestcfg exists for the API user
       stat:
-        path: "/home/{{ vmws_user }}/.vmrestcfg"
+        path: "/home/{{ vmws_user }}/.vmrestCfg"
       register: vmrest_config
       failed_when: not vmrest_config.stat.exists
       become_user: "{{ vmws_user }}"
