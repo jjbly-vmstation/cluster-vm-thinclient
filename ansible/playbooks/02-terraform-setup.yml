@@ -110,7 +110,7 @@
         {{ terraform_bin }} apply -auto-approve \
           -var='vmws_url=http://localhost:8697/api' \
           -var='vmws_user={{ vmws_user }}' \
-          -var='vmws_password={{ vmws_password }}' \
+          -var='vmws_password={{ vmws_pass }}' \
           -var='iso_path={{ iso_path }}' \
           2>&1 | tee terraform_apply.log
       args:
@@ -120,6 +120,8 @@
       become_user: "{{ vm_admin_user }}"
       register: tf_result
 
+
+      
     - name: Show Terraform Output
       debug:
         var: tf_result.stdout_lines
