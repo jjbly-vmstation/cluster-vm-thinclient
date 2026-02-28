@@ -40,39 +40,42 @@
       failed_when: not vmrest_config.stat.exists
       become_user: "{{ vmws_user }}"
 
-    # 1. PRE-REQUISITE VALIDATION (Replaces the broken 'expect' task)
-    - name: Verify manual vmrest configuration exists
-      stat:
-        path: "/home/{{ vmws_user }}/.vmrestcfg"
-      register: vmrest_cfg_check
-      failed_when: not vmrest_cfg_check.stat.exists
-      msg: "FATAL: .vmrestcfg not found. Please run 'vmrest -C' manually as {{ vmws_user }} first."
+    # 2. CREDENTIAL SETUP (COMMENTED OUT - ALREADY DONE MANUALLY)
+    # -------------------------------------------------------------------------
+    # - name: Configure vmrest credentials via expect
+    #   shell: |
+    #     expect -c '
+    #     spawn /usr/bin/vmrest -C
+    #     expect "Username:"
+    #     send "{{ vmws_user }}\r"
+    #     expect "Password:"
+    #     send "{{ vmws_pass }}\r"
+    #     expect eof
+    #     '
+    #   no_log: true
+    #   become: true
+    #   become_user: vmadmin
+    # -------------------------------------------------------------------------
 
-    # 2. PERMISSION ENFORCEMENT
-    - name: Ensure correct ownership of the config file
-      file:
-        path: "/home/{{ vmws_user }}/.vmrestcfg"
-        owner: "{{ vmws_user }}"
-        group: "{{ vmws_user }}"
-        mode: '0600'
-      # This ensures the file is lowercase and secure as required by VMware
-
-    # 3. SYSTEMD SERVICE (Using the nested library fix we documented)
-    - name: Create systemd unit file
+    # 3. SYSTEMD SERVICE MANAGEMENT
+    - name: Create systemd unit file for vmrest (Running as vmadmin)
       copy:
         dest: /etc/systemd/system/vmrest.service
         content: |
           [Unit]
-          Description=VMware REST API Service
+          Description=VMware Workstation REST API Service
           After=network.target
 
           [Service]
           Type=simple
-          User={{ vmws_user }}
-          # Pointing to nested directories to avoid Error 21
+          User=vmadmin
+          Group=vmadmin
+          # HOME is required so vmrest finds /home/vmadmin/.vmrestCfg
+          Environment="HOME=/home/vmadmin"
+          # Nested library fix for RHEL
           Environment="LD_LIBRARY_PATH=/usr/lib/vmware/lib/libvmwarebase.so:/usr/lib/vmware/lib/libvnetlib.so:/usr/lib/vmware/lib/libgcc_s.so.1:/usr/lib/vmware/lib"
           Environment="VMWARE_USE_SHIPPED_LIBS=1"
-          ExecStart=/usr/bin/vmrest -i 0.0.0.0 -p {{ vmrest_port }}
+          ExecStart=/usr/bin/vmrest -p {{ vmrest_port }}
           Restart=on-failure
           RestartSec=5
 
@@ -80,12 +83,12 @@
           WantedBy=multi-user.target
       notify: Reload Systemd
 
-    # 4. SERVICE PERSISTENCE
-    - name: Ensure vmrest is enabled and running with the new config
+    - name: Ensure vmrest is enabled and running
       systemd:
         name: vmrest
         state: restarted
         enabled: yes
+        daemon_reload: yes
 
     - name: Wait for vmrest to be ready on port {{ vmrest_port }}
       wait_for:
