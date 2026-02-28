@@ -14,6 +14,38 @@
     iso_path: "/home/vmadmin/iso/en-us_windows_11_business_editions_version_25h2_updated_feb_2026_x64_dvd_9271bf68.iso"
 
   tasks:
+
+    # 1. CLEAN THE SLATE
+    - name: Check if VMware is already installed
+      stat:
+        path: /usr/bin/vmware-installer
+      register: vm_installer
+
+    - name: Uninstall existing corrupted VMware installation
+      command: /usr/bin/vmware-installer -u vmware-workstation --yes
+      when: vm_installer.stat.exists
+      ignore_errors: true # Ignore if it's so broken it won't uninstall
+
+    - name: Purge corrupted library residues
+      file:
+        path: /usr/lib/vmware
+        state: absent
+
+    # 2. THE CLEAN INSTALL
+    - name: Install VMware Workstation (Clean Run)
+      command: "/home/vmadmin/iso/VMware-Workstation-Full-25H2u1-25219725.x86_64.bundle --console --eulas-agreed --required"
+      args:
+        creates: /usr/lib/vmware/bin/vmware # Only runs if the binary is missing
+
+    # 3. VERIFICATION (Fail fast if the installer lied)
+    - name: Verify libgcc_s.so.1 is a file, not a directory
+      stat:
+        path: /usr/lib/vmware/lib/libgcc_s.so.1
+      register: lib_check
+      failed_when: lib_check.stat.isdir
+
+
+
     # 1. DETERMINISTIC KERNEL ALIGNMENT
     - name: Detect running kernel version
       set_fact:
