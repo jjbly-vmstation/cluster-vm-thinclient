@@ -54,33 +54,34 @@
 
 
 
-    # 3. CRITICAL LIBRARY SANITIZATION
-    - name: Fix VMware broken library directories
-      block:
-        - name: Identify and remove fake library directories
-          file:
-            path: "/usr/lib/vmware/lib/{{ item.name }}"
-            state: absent
-          loop:
-            - { name: 'libgcc_s.so.1', src: '/lib64/libgcc_s.so.1' }
-            - { name: 'libglib-2.0.so.0', src: '/lib64/libglib-2.0.so.0' }
-            - { name: 'libcrypto.so.3', src: '/lib64/libcrypto.so.3' }
-            - { name: 'libssl.so.3', src: '/lib64/libssl.so.3' }
-          register: lib_cleanup
+    # 3. BULK LIBRARY SANITIZATION (The "Nuclear" Option)
+    - name: Convert all fake VMware library directories to system symlinks
+      shell: |
+        for dir in /usr/lib/vmware/lib/*.so*; do
+          if [ -d "$dir" ] && [ ! -L "$dir" ]; then
+            libname=$(basename "$dir")
+            rm -rf "$dir"
+            # Attempt to link to system lib64 version
+            if [ -f "/lib64/$libname" ]; then
+              ln -s "/lib64/$libname" "$dir"
+            else
+              # Fallback: if not in lib64, some VMware libs might be elsewhere
+              # or unique to VMware. We log these but keep moving.
+              echo "Warning: No system equivalent for $libname" >> /var/log/vmware-fix.log
+            fi
+          fi
+        done
+      args:
+        executable: /bin/bash
+      register: bulk_fix
+      changed_when: true
 
-        - name: Link to system-native libraries
-          file:
-            src: "{{ item.src }}"
-            dest: "/usr/lib/vmware/lib/{{ item.name }}"
-            state: link
-            force: yes
-          loop:
-            - { name: 'libgcc_s.so.1', src: '/lib64/libgcc_s.so.1' }
-            - { name: 'libglib-2.0.so.0', src: '/lib64/libglib-2.0.so.0' }
-            - { name: 'libcrypto.so.3', src: '/lib64/libcrypto.so.3' }
-            - { name: 'libssl.so.3', src: '/lib64/libssl.so.3' }
-      when: ansible_os_family == "RedHat"
-
+    - name: Ensure standard C++ library is correctly linked (Common RHEL pitfall)
+      file:
+        src: /lib64/libstdc++.so.6
+        dest: /usr/lib/vmware/lib/libstdc++.so.6
+        state: link
+        force: yes
 
     # 3. CONFIGURATION (Credentials must exist for the service to bind)
     - name: Configure vmrest credentials via expect
