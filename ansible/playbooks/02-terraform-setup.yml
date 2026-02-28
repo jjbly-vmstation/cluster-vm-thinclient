@@ -8,11 +8,12 @@
     terraform_version: "1.5.0"
     terraform_bin: "/usr/local/bin/terraform"
     terraform_dir: "/home/vmadmin/vmstation-org/cluster-vm-thinclient/terraform"
-    # Credentials from your manual setup
-    vmws_user: "jashandeepjustinbains"
+    # DELETE vmws_user FROM HERE - Let it load from compute_nodes.yml
     vmrest_port: 8697
     vm_admin_user: "vmadmin"
-    iso_path: "/home/vmadmin/iso/en-us_windows_11_business_editions_version_25h2_updated_feb_2026_x64_dvd_9271bf68.iso"
+    # iso_path IS ALREADY IN compute_nodes.yml, YOU CAN DELETE IT HERE TOO
+
+
 
   tasks:
 
