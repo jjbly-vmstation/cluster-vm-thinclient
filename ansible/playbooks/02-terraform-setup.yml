@@ -113,17 +113,21 @@
 
     - name: Run terraform apply and stream to log
       shell: |
-        {{ terraform_bin }} apply -auto-approve \
-          -var="vmws_url=http://127.0.0.1:8697/api" \
-          -var="vmws_user={{ vmws_user }}" \
-          -var="vmws_password={{ vmws_pass }}" \
-          -var="iso_path={{ iso_path }}" \
-          2>&1 | tee terraform_apply.log
+        {{ terraform_bin }} apply -auto-approve 2>&1 | tee terraform_apply.log
       args:
         chdir: "{{ terraform_dir }}"
         executable: /bin/bash
       become: true
       become_user: "{{ vm_admin_user }}"
+      environment:
+        # Provider-specific environment variables (as hinted in the prompt)
+        VMWS_ENDPOINT: "http://127.0.0.1:8697/api"
+        VMWS_USERNAME: "{{ vmws_user }}"
+        VMWS_PASSWORD: "{{ vmws_pass }}"
+        # Also set Terraform variable equivalents (optional, for any references in .tf files)
+        TF_VAR_vmws_url: "http://127.0.0.1:8697/api"
+        TF_VAR_vmws_user: "{{ vmws_user }}"
+        TF_VAR_vmws_password: "{{ vmws_pass }}"
 
 
 
