@@ -99,7 +99,12 @@
         delay: 2
         timeout: 30
 
+    
     # 5. TERRAFORM DEPLOYMENT
+    - name: DEBUG - Confirm Variables are Loaded
+      debug:
+        msg: "Targeting User: {{ vmws_user }} | Using ISO: {{ iso_path }}"
+
     - name: Run terraform init
       command: "{{ terraform_bin }} init -upgrade"
       args:
