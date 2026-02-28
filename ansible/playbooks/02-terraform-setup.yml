@@ -60,31 +60,26 @@
       no_log: true
       changed_when: false # Only run if ~/.vmrestcfg is missing (ideally)
 
-    # 3. THE CRITICAL SYSTEMD REFACTOR
-    - name: Create systemd unit file with Nested Library Path fix
-      copy:
-        dest: /etc/systemd/system/vmrest.service
-        content: |
-          [Unit]
-          Description=VMware Workstation REST API Service
-          After=network.target
+    # 3. CONFIGURATION (Only run if the config is missing)
+    - name: Check if vmrest config exists
+      stat:
+        path: "/home/{{ vmws_user }}/.vmrestcfg"
+      register: vm_cfg
 
-          [Service]
-          Type=simple
-          User={{ vmws_user }}
-          # FIX: Explicitly point to the FOLDERS to avoid Error 21
-          Environment="LD_LIBRARY_PATH=/usr/lib/vmware/lib/libvmwarebase.so:/usr/lib/vmware/lib/libvnetlib.so:/usr/lib/vmware/lib/libgcc_s.so.1:/usr/lib/vmware/lib"
-          Environment="VMWARE_USE_SHIPPED_LIBS=1"
-          ExecStart=/usr/bin/vmrest -i 0.0.0.0 -p {{ vmrest_port }}
-          Restart=on-failure
-          RestartSec=5
-
-          [Install]
-          WantedBy=multi-user.target
-      notify: Reload Systemd
-
-    - name: Force Systemd Reload immediately
-      meta: flush_handlers
+    - name: Configure vmrest credentials via expect
+      shell: |
+        expect -c '
+        spawn /usr/bin/vmrest -C
+        expect "Username:"
+        send "{{ vmws_user }}\r"
+        expect "Password:"
+        send "{{ vmws_pass }}\r"
+        expect eof
+        '
+      no_log: true
+      when: not vm_cfg.stat.exists
+      become: true
+      become_user: "{{ vmws_user }}"
 
     # 4. SERVICE PERSISTENCE
     - name: Ensure vmrest is enabled and running with the new config
