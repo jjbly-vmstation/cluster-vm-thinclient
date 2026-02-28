@@ -54,6 +54,34 @@
 
 
 
+    # 3. CRITICAL LIBRARY SANITIZATION
+    - name: Fix VMware broken library directories
+      block:
+        - name: Identify and remove fake library directories
+          file:
+            path: "/usr/lib/vmware/lib/{{ item.name }}"
+            state: absent
+          loop:
+            - { name: 'libgcc_s.so.1', src: '/lib64/libgcc_s.so.1' }
+            - { name: 'libglib-2.0.so.0', src: '/lib64/libglib-2.0.so.0' }
+            - { name: 'libcrypto.so.3', src: '/lib64/libcrypto.so.3' }
+            - { name: 'libssl.so.3', src: '/lib64/libssl.so.3' }
+          register: lib_cleanup
+
+        - name: Link to system-native libraries
+          file:
+            src: "{{ item.src }}"
+            dest: "/usr/lib/vmware/lib/{{ item.name }}"
+            state: link
+            force: yes
+          loop:
+            - { name: 'libgcc_s.so.1', src: '/lib64/libgcc_s.so.1' }
+            - { name: 'libglib-2.0.so.0', src: '/lib64/libglib-2.0.so.0' }
+            - { name: 'libcrypto.so.3', src: '/lib64/libcrypto.so.3' }
+            - { name: 'libssl.so.3', src: '/lib64/libssl.so.3' }
+      when: ansible_os_family == "RedHat"
+
+
     # 3. CONFIGURATION (Credentials must exist for the service to bind)
     - name: Configure vmrest credentials via expect
       shell: |
