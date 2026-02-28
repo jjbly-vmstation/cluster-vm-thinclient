@@ -14,50 +14,39 @@
     iso_path: "/home/vmadmin/iso/en-us_windows_11_business_editions_version_25h2_updated_feb_2026_x64_dvd_9271bf68.iso"
 
   tasks:
-    # 1. PREFLIGHT: ALIGN KERNEL AND HEADERS
-    - name: Ensure kernel and headers are updated to the latest version
+    # 1. DETERMINISTIC KERNEL ALIGNMENT
+    - name: Detect running kernel version
+      set_fact:
+        running_kernel: "{{ ansible_kernel }}"
+
+    - name: Ensure exact matching build environment is present
       yum:
-        name: 
-          - kernel
-          - kernel-devel
-          - kernel-headers
-        state: latest
-      register: kernel_update
-
-    - name: Reboot homelab to apply new kernel (if updated)
-      reboot:
-        msg: "Rebooting to apply new kernel before compiling VMware modules"
-        reboot_timeout: 600
-      when: kernel_update.changed
-
-    - name: Refresh Ansible facts after potential reboot
-      setup:
-      when: kernel_update.changed
-
-    - name: Ensure build tools are present
-      yum:
-        name: [gcc, make, elfutils-libelf-devel, expect, wget, unzip]
+        name:
+          - "kernel-devel-{{ running_kernel }}"
+          - "kernel-headers-{{ running_kernel }}"
+          - gcc
+          - make
+          - elfutils-libelf-devel
         state: present
+      register: kernel_pkg_result
+      ignore_errors: true
 
-    # 2. INSTALLATION & KERNEL MODULES
-    - name: Install VMware Workstation from bundle
-      command: "/home/vmadmin/iso/VMware-Workstation-Full-25H2u1-25219725.x86_64.bundle --console --eulas-agreed --required"
-      args:
-        creates: /usr/lib/vmware
+    - name: Fail if matching headers are unavailable
+      fail:
+        msg: |
+          FATAL: Matching headers for {{ running_kernel }} not found in repositories.
+          Standard Engineering Practice: Ensure your base image (Golden Image) 
+          is pre-synced or use a local Satellite/Repo mirror with legacy kernels.
+      when: kernel_pkg_result.failed
 
-    - name: Link kernel headers for VMware (Safely)
-      file:
-        src: "/usr/src/kernels/{{ ansible_kernel }}"
-        dest: "/lib/modules/{{ ansible_kernel }}/build"
-        state: link
-        force: yes
-        follow: False # Suppresses the warning if run concurrently
-
-    - name: Rebuild VMware Kernel Modules with explicit path
+    # 2. TARGETED MODULE COMPILATION
+    - name: Rebuild VMware Kernel Modules
       shell: |
-        export env VMWARE_USE_SHIPPED_LIBS=1
-        vmware-modconfig --console --install-all
+        export VMWARE_USE_SHIPPED_LIBS=1
+        vmware-modconfig --console --install-all \
+          --with-kernel-headers=/usr/src/kernels/{{ running_kernel }}
       register: modconfig_output
+      # Industry standard: don't just check RC 1, check the stderr for environment issues
       failed_when: 
         - modconfig_output.rc != 0
         - "'Failed to setup build environment' in modconfig_output.stderr"
@@ -65,7 +54,6 @@
 
 
 
-        
     # 3. CONFIGURATION (Credentials must exist for the service to bind)
     - name: Configure vmrest credentials via expect
       shell: |
@@ -79,7 +67,6 @@
         '
       no_log: true
       changed_when: true
-
     # 4. SYSTEMD SERVICE MANAGEMENT
     - name: Create systemd unit file for vmrest
       copy:
@@ -92,7 +79,8 @@
           [Service]
           Type=simple
           User=root
-          Environment=LD_LIBRARY_PATH=/usr/lib/vmware/lib
+          # Explicitly include all VMware lib paths for RHEL stability
+          Environment="LD_LIBRARY_PATH=/usr/lib/vmware/lib:/usr/lib/vmware/lib/libconf"
           ExecStart=/usr/bin/vmrest -i 0.0.0.0 -p {{ vmrest_port }}
           Restart=on-failure
           RestartSec=5
@@ -101,20 +89,27 @@
           WantedBy=multi-user.target
       notify: Reload Systemd
 
-    - name: Force systemd reload if unit changed
-      meta: flush_handlers
+    - name: Ensure port {{ vmrest_port }} is open in firewalld
+      firewalld:
+        port: "{{ vmrest_port }}/tcp"
+        permanent: yes
+        state: enabled
+        immediate: yes
+      ignore_errors: true # In case firewalld isn't running
 
     - name: Ensure vmrest is enabled and running
       systemd:
         name: vmrest
         state: restarted
         enabled: yes
+        daemon_reload: yes
 
     - name: Wait for vmrest to be ready
       wait_for:
+        host: 0.0.0.0
         port: "{{ vmrest_port }}"
-        timeout: 30
-
+        timeout: 45
+        msg: "Timeout waiting for vmrest. Check 'journalctl -u vmrest' on the host."
     # 5. TERRAFORM DEPLOYMENT
     - name: Run terraform init
       command: "{{ terraform_bin }} init -upgrade"
