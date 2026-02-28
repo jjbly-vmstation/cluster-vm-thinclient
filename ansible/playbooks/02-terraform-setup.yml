@@ -75,7 +75,7 @@
           # Nested library fix for RHEL
           Environment="LD_LIBRARY_PATH=/usr/lib/vmware/lib/libvmwarebase.so:/usr/lib/vmware/lib/libvnetlib.so:/usr/lib/vmware/lib/libgcc_s.so.1:/usr/lib/vmware/lib"
           Environment="VMWARE_USE_SHIPPED_LIBS=1"
-          ExecStart=/usr/bin/vmrest -i 0.0.0.0:8697
+          ExecStart=/usr/bin/vmrest -p 192.168.4.62:8697
           Restart=on-failure
           RestartSec=5
 
