@@ -40,7 +40,6 @@
       failed_when: not vmrest_config.stat.exists
       become_user: "{{ vmws_user }}"
 
- tasks:
     # 1. PRE-REQUISITE VALIDATION (Replaces the broken 'expect' task)
     - name: Verify manual vmrest configuration exists
       stat:
