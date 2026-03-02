@@ -25,7 +25,7 @@ variable "vm_name" {
 variable "memory_mb" {
   description = "Memory in MB"
   type        = number
-  default     = 8192
+  default     = 12288
 }
 
 variable "vcpus" {
@@ -43,4 +43,6 @@ variable "disk_size_gb" {
 variable "iso_path" {
   description = "Path to Windows 11 ISO"
   type        = string
+  default     = "/home/vmadmin/iso/en-us_windows_11_business_editions_version_25h2_updated_feb_2026_x64_dvd_9271bf68.iso"
+
 }
