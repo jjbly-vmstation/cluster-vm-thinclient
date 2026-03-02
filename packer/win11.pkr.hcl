@@ -21,7 +21,10 @@ source "vmware-iso" "windows_11" {
   guest_os_type    = "windows11-64"
   vm_name          = "win11-template"
   output_directory = "/home/vmadmin/vmware/win11-template"
-  
+
+  shutdown_timeout = "60m"  # Give it up to an hour to finish
+  boot_wait        = "15s"  # Wait for the BIOS/UEFI to settle before "typing"
+
   cpus             = 4
   memory           = 8192
   disk_size        = 65536
