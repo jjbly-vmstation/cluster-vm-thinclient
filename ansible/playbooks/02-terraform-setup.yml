@@ -44,14 +44,22 @@
       failed_when: not vmrest_config.stat.exists
       become_user: "{{ vmws_user }}"
 
-    - name: Sync Terraform configuration to Homelab
+    - name: Synchronize Terraform configuration to Homelab
       ansible.posix.synchronize:
-        src: "../../terraform/"  # Path on Masternode
-        owner: "{{ vm_admin_user }}"
-        group: "{{ vm_admin_user }}"
-        dest: "{{ terraform_dir }}/"          # Path on Homelab
-        delete: yes                           # Wipe stale files like old lock files
+        src: "../../terraform/" 
+        dest: "{{ terraform_dir }}/"
+        recursive: yes
+        delete: yes
+      become: true
 
+    - name: Fix permissions on terraform directory
+      file:
+        path: "{{ terraform_dir }}"
+        owner: "{{ vm_admin_user }}" 
+        group: "{{ vm_admin_user }}"
+        state: directory
+        recurse: yes
+      become: true
     # 2. CREDENTIAL SETUP (COMMENTED OUT - ALREADY DONE MANUALLY)
     # -------------------------------------------------------------------------
     # - name: Configure vmrest credentials via expect
