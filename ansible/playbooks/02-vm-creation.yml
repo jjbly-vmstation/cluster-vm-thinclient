@@ -1,5 +1,5 @@
 ---
-- name: End-to-End Windows 11 Automation (Packer + Terraform)
+- name: Phase 1 - Build Golden Image (Packer)
   hosts: homelab
   become: true
   vars_files:
@@ -7,40 +7,22 @@
   vars:
     project_root: "/home/vmadmin/vmstation-org/cluster-vm-thinclient"
     packer_dir: "{{ project_root }}/packer"
-    terraform_dir: "{{ project_root }}/terraform"
     template_path: "/home/vmadmin/vmware/win11-template/win11-template.vmx"
 
   tasks:
-    # --- PHASE 1: SYSTEM SETUP ---
-    - name: Add HashiCorp Repo
-      shell: dnf config-manager --add-repo https://rpm.releases.hashicorp.com/RHEL/hashicorp.repo
+    - name: Install Packer
+      shell: |
+        dnf config-manager --add-repo https://rpm.releases.hashicorp.com/RHEL/hashicorp.repo
+        dnf install -y packer
       args:
-        creates: /etc/yum.repos.d/hashicorp.repo
-
-    - name: Install Packer and Terraform
-      dnf:
-        name: 
-          - packer
-          - terraform
-        state: present
+        creates: /usr/bin/packer
 
     - name: Create project structure
       file:
-        path: "{{ item }}"
+        path: "{{ packer_dir }}"
         state: directory
         owner: vmadmin
         group: vmadmin
-        mode: '0755'
-      loop: ["{{ packer_dir }}", "{{ terraform_dir }}"]
-
-    # --- PHASE 2: CONFIG & SECRETS ---
-    - name: Sync codebase (Excluding sensitive XML)
-      ansible.posix.synchronize:
-        src: "../../"
-        dest: "{{ project_root }}/"
-        recursive: yes
-        delete: yes
-        rsync_opts: ["--exclude=packer/autounattend.xml"]
 
     - name: Generate Secure autounattend.xml from Template
       template:
@@ -50,29 +32,21 @@
         group: vmadmin
         mode: '0600'
 
-    # --- PHASE 3: THE BUILD ---
-    - name: Check for existing Golden Image
-      stat:
-        path: "{{ template_path }}"
-      register: template_file
+    - name: Sync Packer build files
+      ansible.posix.synchronize:
+        src: "../../packer/"
+        dest: "{{ packer_dir }}/"
+        recursive: yes
+        rsync_opts: ["--exclude=autounattend.xml"]
 
-    - name: Initialize and Build Packer Template
+    - name: Run Packer Build
       shell: |
         packer init .
         packer build -force win11.pkr.hcl
       args:
         chdir: "{{ packer_dir }}"
       become_user: vmadmin
-      when: not template_file.stat.exists
-
-    # --- PHASE 4: THE DEPLOY ---
-    - name: Deploy VM via Terraform Clone
-      shell: |
-        terraform init -upgrade
-        terraform apply -auto-approve -var="sourceid={{ template_path }}"
-      args:
-        chdir: "{{ terraform_dir }}"
-      become_user: vmadmin
+      when: not (template_path | exists) # Custom check or use stat task
 
     - name: Cleanup Secrets
       file:

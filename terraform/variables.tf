@@ -1,27 +1,19 @@
-variable "vmws_url" {
-  description = "VMware Workstation REST API URL"
-  type        = string
-  default     = "http://localhost:8697/api"
-}
+variable "vmws_url" { default = "http://127.0.0.1:8697/api" }
+variable "vmws_user" { default = "vmadmin" }
+variable "vmws_pass" { type = string }
+variable "sourceid" { type = string }
 
-variable "vmws_user" {
-  description = "VMware REST API User"
-  type        = string
-  sensitive   = true
-  default     = "" # Allow environment variables to take precedence
-}
-
-variable "vmws_password" {
-  description = "VMware REST API Password"
-  type        = string
-  sensitive   = true
-  default     = ""
-}
 
 variable "vm_name" {
   description = "VM name"
   type        = string
   default     = "windows-thinclient"
+}
+
+
+variable "sourceid" {
+  description = "Path to the Packer-generated VMX template"
+  type        = string
 }
 
 variable "memory_mb" {

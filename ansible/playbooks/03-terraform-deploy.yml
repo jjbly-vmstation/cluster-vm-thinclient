@@ -1,0 +1,28 @@
+---
+- name: Phase 2 - Deploy VM from Template (Terraform)
+  hosts: homelab
+  become: true
+  vars_files:
+    - "/opt/vmstation-org/cluster-setup/ansible/inventory/group_vars/compute_nodes.yml"
+  vars:
+    project_root: "/home/vmadmin/vmstation-org/cluster-vm-thinclient"
+    terraform_dir: "{{ project_root }}/terraform"
+    template_path: "/home/vmadmin/vmware/win11-template/win11-template.vmx"
+
+  tasks:
+    - name: Sync Terraform codebase
+      ansible.posix.synchronize:
+        src: "../../terraform/"
+        dest: "{{ terraform_dir }}/"
+        recursive: yes
+        delete: yes
+
+    - name: Terraform Apply (Securely passing credentials)
+      shell: |
+        terraform init -upgrade
+        terraform apply -auto-approve \
+          -var="vmws_pass={{ vmws_pass }}" \
+          -var="sourceid={{ template_path }}"
+      args:
+        chdir: "{{ terraform_dir }}"
+      become_user: vmadmin

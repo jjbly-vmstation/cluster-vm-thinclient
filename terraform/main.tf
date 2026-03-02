@@ -7,10 +7,11 @@ terraform {
   }
 }
 
+# Credentials are now passed via variables
 provider "vmworkstation" {
-  endpoint = "http://127.0.0.1:8697/api"
-  username = "vmadmin"
-  password = "VMwarePassword1!"
+  endpoint = var.vmws_url
+  username = var.vmws_user
+  password = var.vmws_pass
   debug    = true
 }
 
@@ -19,15 +20,7 @@ resource "vmworkstation_virtual_machine" "windows_vm" {
   description  = "Enterprise - Massgrave Activated"
   processors   = 4
   memory       = 12288
-  sourceid     = var.sourceid # Passed from Ansible
+  sourceid     = var.sourceid
   path         = "/home/vmadmin/vmware/windows-thinclient/windows-thinclient.vmx"
-
-  lifecycle {
-    # If the VM is manually deleted, Terraform recreates it on next run
-    replace_triggered_by = [
-      null_resource.force_rebuild_on_corruption
-    ]
-  }
-
 
 }
