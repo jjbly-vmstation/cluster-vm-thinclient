@@ -39,6 +39,17 @@
         recursive: yes
         rsync_opts: ["--exclude=autounattend.xml"]
 
+    - name: Check if Golden Image (Template) already exists
+      stat:
+        path: "{{ template_path }}"
+      register: golden_image_stat
+
+    - name: Install Packer VMware Plugin
+      shell: packer plugins install github.com/hashicorp/vmware
+      become_user: vmadmin
+      args:
+        creates: "/home/vmadmin/.config/packer/plugins/github.com/hashicorp/vmware"
+    
     - name: Run Packer Build
       shell: |
         packer init .
@@ -46,7 +57,10 @@
       args:
         chdir: "{{ packer_dir }}"
       become_user: vmadmin
-      when: not (template_path | exists) # Custom check or use stat task
+      # This check is now 100% reliable
+      when: not golden_image_stat.stat.exists
+      # Optional: keeps the terminal from showing internal shell details
+      no_log: false
 
     - name: Cleanup Secrets
       file:
