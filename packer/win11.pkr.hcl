@@ -24,10 +24,14 @@ source "vmware-iso" "windows_11" {
 
   shutdown_timeout = "30m"  # Give it up to an hour to finish
 
-  # Ensure it tries to boot from the CD immediately
-  boot_wait = "5s"
-  boot_command = ["<esc><wait><esc><wait><enter>"] 
-  
+
+  # This sends the "Enter" key repeatedly the moment the BIOS/UEFI starts
+  boot_wait = "3s"
+  boot_command = [
+    "<enter><enter><enter><enter><enter>"
+  ]
+
+
   # Allow VNC from your main computer (not just 127.0.0.1)
   vnc_bind_address = "0.0.0.0"
   vnc_port_min      = 5900
