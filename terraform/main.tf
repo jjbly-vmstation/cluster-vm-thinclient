@@ -9,10 +9,11 @@ terraform {
 }
 
 provider "vmworkstation" {
-  # Remove the url, user, and password lines here.
-  # The provider will now automatically grab VMWS_ENDPOINT, 
-  # VMWS_USERNAME, and VMWS_PASSWORD from your Ansible environment.
-  https = false
+  # These are the specific names the provider v2.0.1 requires
+  endpoint = var.vmws_url
+  username = var.vmws_user
+  password = var.vmws_password
+  https    = false
 }
 
 resource "vmworkstation_vm" "windows_vm" {

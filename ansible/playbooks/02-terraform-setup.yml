@@ -114,19 +114,19 @@
       shell: |
         {{ terraform_bin }} apply -auto-approve \
           -input=false \
+          -var="vmws_url=http://127.0.0.1:8697/api" \
           -var="vmws_user={{ vmws_user }}" \
           -var="vmws_password={{ vmws_pass }}" \
-          -var="vm_name={{ vm_name | default('windows-thinclient') }}" \
-          -var="iso_path={{ iso_path }}" \
-          -var="memory_mb={{ memory_mb | default(12288) }}" \
-          -var="vcpus={{ vcpus | default(4) }}" \
-          -var="disk_size_gb={{ os_disk_size_gb | default(100) }}"
+          -var="vm_name={{ vm_name }}" \
+          -var="iso_path={{ iso_path }}"
       args:
         chdir: "{{ terraform_dir }}"
         executable: /bin/bash
       become: true
       become_user: "{{ vm_admin_user }}"
       environment:
+        TF_VAR_vmws_user: "{{ vmws_user }}"
+        TF_VAR_vmws_password: "{{ vmws_pass }}"
         VMWS_ENDPOINT: "http://127.0.0.1:8697/api"
         VMWS_USERNAME: "{{ vmws_user }}"
         VMWS_PASSWORD: "{{ vmws_pass }}"
