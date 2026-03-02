@@ -52,15 +52,11 @@
     
     - name: Run Packer Build
       shell: |
-        packer init .
-        packer build -force win11.pkr.hcl
+        packer init win11.pkr.hcl
+        packer build -force -var "vm_password={{ vmws_pass }}" win11.pkr.hcl
       args:
         chdir: "{{ packer_dir }}"
       become_user: vmadmin
-      # This check is now 100% reliable
-      when: not golden_image_stat.stat.exists
-      # Optional: keeps the terminal from showing internal shell details
-      no_log: false
 
     - name: Cleanup Secrets
       file:
