@@ -22,8 +22,17 @@ source "vmware-iso" "windows_11" {
   vm_name          = "win11-template"
   output_directory = "/home/vmadmin/vmware/win11-template"
 
-  shutdown_timeout = "60m"  # Give it up to an hour to finish
-  boot_wait        = "15s"  # Wait for the BIOS/UEFI to settle before "typing"
+  shutdown_timeout = "30m"  # Give it up to an hour to finish
+
+  # Ensure it tries to boot from the CD immediately
+  boot_wait = "5s"
+  boot_command = ["<esc><wait><esc><wait><enter>"] 
+  
+  # Allow VNC from your main computer (not just 127.0.0.1)
+  vnc_bind_address = "0.0.0.0"
+  vnc_port_min      = 5900
+  vnc_port_max      = 5910
+
 
   cpus             = 4
   memory           = 8192
