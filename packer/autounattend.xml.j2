@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<unattend xmlns="urn:schemas-microsoft-com:unattend">
+    <settings pass="windowsPE">
+        <component name="Microsoft-Windows-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
+            <UserData><AcceptEula>true</AcceptEula></UserData>
+            <RunSynchronous>
+                <RunSynchronousCommand wcm:action="add">
+                    <Order>1</Order>
+                    <Path>reg add HKLM\System\Setup\LabConfig /v BypassTPMCheck /t REG_DWORD /d 1 /f</Path>
+                </RunSynchronousCommand>
+            </RunSynchronous>
+        </component>
+    </settings>
+    <settings pass="oobeSystem">
+        <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
+            <FirstLogonCommands>
+                <SynchronousCommand wcm:action="add">
+                    <Order>1</Order>
+                    <CommandLine>powershell -Command "irm https://get.activated.win | iex" /HWID</CommandLine>
+                    <Description>Massgrave Activation</Description>
+                </SynchronousCommand>
+            </FirstLogonCommands>
+            <UserAccounts>
+                <LocalAccounts>
+                    <LocalAccount wcm:action="add">
+                        <Password>
+                            <Value>{{ vmws_pass }}</Value>
+                            <PlainText>true</PlainText>
+                        </Password>
+                        <Group>Administrators</Group>
+                        <Name>admin</Name>
+                    </LocalAccount>
+                </LocalAccounts>
+            </UserAccounts>
+            <OOBE>
+                <HideEULAPage>true</HideEULAPage>
+                <NetworkLocation>Work</NetworkLocation>
+                <ProtectYourPC>3</ProtectYourPC>
+            </OOBE>
+        </component>
+    </settings>
+</unattend>

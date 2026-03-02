@@ -1,0 +1,63 @@
+---
+- name: One-Time Automated Windows 11 Build
+  hosts: homelab
+  become: true
+  vars_files:
+    - "/opt/vmstation-org/cluster-setup/ansible/inventory/group_vars/compute_nodes.yml"
+  vars:
+    project_root: "/home/vmadmin/vmstation-org/cluster-vm-thinclient"
+    packer_dir: "{{ project_root }}/packer"
+    terraform_dir: "{{ project_root }}/terraform"
+    template_path: "/home/vmadmin/vmware/win11-template/win11-template.vmx"
+
+  tasks:
+    - name: Ensure Packer is installed
+      dnf:
+        name: packer
+        state: present
+
+    - name: Create project directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: vmadmin
+        group: vmadmin
+      loop: ["{{ packer_dir }}", "{{ terraform_dir }}"]
+
+    - name: Sync project (Excluding sensitive XML)
+      ansible.posix.synchronize:
+        src: "../../"
+        dest: "{{ project_root }}/"
+        recursive: yes
+        delete: yes
+        rsync_opts: ["--exclude=packer/autounattend.xml"]
+
+    - name: Generate autounattend.xml from template
+      template:
+        src: "../../packer/autounattend.xml.j2"
+        dest: "{{ packer_dir }}/autounattend.xml"
+        owner: vmadmin
+        group: vmadmin
+        mode: '0600'
+
+    - name: Run Packer Build
+      shell: |
+        packer init .
+        packer build -force win11.pkr.hcl
+      args:
+        chdir: "{{ packer_dir }}"
+      become_user: vmadmin
+      register: packer_out
+
+    - name: Terraform Deploy (Clone)
+      shell: |
+        terraform init -upgrade
+        terraform apply -auto-approve -var="sourceid={{ template_path }}"
+      args:
+        chdir: "{{ terraform_dir }}"
+      become_user: vmadmin
+
+    - name: Cleanup sensitive XML
+      file:
+        path: "{{ packer_dir }}/autounattend.xml"
+        state: absent
