@@ -1,35 +1,36 @@
 terraform {
   required_version = ">= 1.5.0"
   required_providers {
-    vmware = {
-      source  = "chap-at/vmware-desktop"
-      version = "1.2.1"
+    vmworkstation = {
+      source  = "elsudano/vmworkstation"
+      version = "1.0.4"
     }
   }
 }
 
-# No provider block needed for local workstation execution
-# It uses the 'vmrun' utility on the host
+provider "vmworkstation" {
+  user     = var.vmws_user
+  password = var.vmws_password
+  url      = var.vmws_url
+  https    = false
+}
 
-resource "vmware-desktop_virtual_machine" "windows_vm" {
-  name     = var.vm_name
-  target_os = "windows11-64"
+resource "vmworkstation_virtual_machine" "windows_vm" {
+  name          = var.vm_name
+  os            = "windows11-64"
+  memory        = var.memory_mb
+  cpus          = var.vcpus
   
-  # Resource Specs
-  cpus      = var.vcpus
-  memory    = var.memory_mb
-  firmware  = "efi" 
+  # This version uses simpler paths
+  path          = "/home/vmadmin/vmstation-org/cluster-vm-thinclient/terraform/${var.vm_name}.vmx"
 
-  # Storage
-  gui = true
-  
+  # Networking
   network_adapter {
-    type = "bridged" 
+    type = "bridged"
   }
 
+  # ISO for Installation
   cdrom {
     path = var.iso_path
   }
-
-  detach = false
 }

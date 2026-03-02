@@ -1,6 +1,6 @@
 output "vm_name" {
   description = "Name of the Windows VM"
-  value       = vmworkstation_virtual_machine.windows_vm.vm_name
+  value       = vmworkstation_virtual_machine.windows_vm.name
 }
 
 output "vm_id" {
