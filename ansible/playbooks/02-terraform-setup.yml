@@ -122,15 +122,15 @@
       become: true
       become_user: "{{ vm_admin_user }}"
       environment:
-        # 1. Map to the 'variables.tf' names using TF_VAR_ prefix
+        # Layer 1: Satisfy the 'variables.tf' file (TF_VAR_ prefix)
         TF_VAR_vmws_url: "http://127.0.0.1:8697/api"
         TF_VAR_vmws_user: "{{ vmws_user }}"
         TF_VAR_vmws_password: "{{ vmws_pass }}"
         TF_VAR_iso_path: "{{ iso_path }}"
 
-        # 2. Map to the Provider's internal environment expectations
-        VMWS_ENDPOINT: "http://127.0.0.1:8697/api" # Use ENDPOINT, not URL, for the provider internal check
-        VMWS_USER: "{{ vmws_user }}"               # Use USER, not USERNAME
+        # Layer 2: Satisfy the Provider's internal legacy checks
+        VMWS_ENDPOINT: "http://127.0.0.1:8697/api"
+        VMWS_USERNAME: "{{ vmws_user }}"  # FIXED: Changed from VMWS_USER to VMWS_USERNAME
         VMWS_PASSWORD: "{{ vmws_pass }}"
 
 
