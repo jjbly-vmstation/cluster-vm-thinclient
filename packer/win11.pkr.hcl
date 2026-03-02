@@ -26,10 +26,10 @@ source "vmware-iso" "windows_11" {
 
 
   # This sends the "Enter" key repeatedly the moment the BIOS/UEFI starts
-  boot_wait = "3s"
   boot_command = [
-    "<enter><enter><enter><enter><enter>"
+    "<enter><wait><enter><wait><enter><wait><enter><wait><enter>"
   ]
+  boot_wait = "1s"
 
 
   # Allow VNC from your main computer (not just 127.0.0.1)
@@ -39,7 +39,7 @@ source "vmware-iso" "windows_11" {
 
 
   cpus             = 4
-  memory           = 8192
+  memory           = 12288
   disk_size        = 65536
   headless         = true
 
