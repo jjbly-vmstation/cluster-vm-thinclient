@@ -3,31 +3,24 @@ terraform {
   required_providers {
     vmworkstation = {
       source  = "elsudano/vmworkstation"
-      version = "1.0.4"
+      version = "2.0.1"
     }
   }
 }
 
 provider "vmworkstation" {
-  user     = var.vmws_user
+  endpoint = var.vmws_url
+  username = var.vmws_user
   password = var.vmws_password
-  url      = var.vmws_url
   https    = false
 }
 
-# Change from vmworkstation_virtual_machine to vmworkstation_vm
-resource "vmworkstation_vm" "windows_vm" {
-  name          = var.vm_name
-  os            = "windows11-64"
-  memory        = var.memory_mb
-  cpus          = var.vcpus
-  path          = "/home/vmadmin/vmstation-org/cluster-vm-thinclient/terraform/${var.vm_name}.vmx"
-
-  network_adapter {
-    type = "bridged"
-  }
-
-  cdrom {
-    path = var.iso_path
-  }
+resource "vmworkstation_virtual_machine" "windows_vm" {
+  # These are the NEW required fields for v2.0.1
+  path         = "/home/vmadmin/vmstation-org/cluster-vm-thinclient/terraform/${var.vm_name}/${var.vm_name}.vmx"
+  processors   = var.vcpus
+  memory       = var.memory_mb
+  sourceid     = "" # Leaving this blank for a fresh install from ISO
+  description  = "Windows 11 Thin Client for Dad"
+  denomination = var.vm_name
 }
