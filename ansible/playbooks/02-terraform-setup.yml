@@ -47,6 +47,8 @@
     - name: Sync Terraform configuration to Homelab
       ansible.posix.synchronize:
         src: "../../terraform/"  # Path on Masternode
+        owner: "{{ vm_admin_user }}"
+        group: "{{ vm_admin_user }}"
         dest: "{{ terraform_dir }}/"          # Path on Homelab
         delete: yes                           # Wipe stale files like old lock files
 
