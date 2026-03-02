@@ -8,12 +8,14 @@ variable "vmws_user" {
   description = "VMware REST API User"
   type        = string
   sensitive   = true
+  default     = "" # Allow environment variables to take precedence
 }
 
 variable "vmws_password" {
   description = "VMware REST API Password"
   type        = string
   sensitive   = true
+  default     = ""
 }
 
 variable "vm_name" {

@@ -101,36 +101,37 @@
 
     
     # 5. TERRAFORM DEPLOYMENT
-    - name: DEBUG - Confirm Variables are Loaded
-      debug:
-        msg: "Targeting User: {{ vmws_user }} | Using ISO: {{ iso_path }}"
 
     - name: Run terraform init
       command: "{{ terraform_bin }} init -upgrade"
       args:
         chdir: "{{ terraform_dir }}"
+      become: true
       become_user: "{{ vm_admin_user }}"
 
-
-
-    - name: Run terraform apply and stream to log
+    - name: Run terraform apply
       shell: |
         {{ terraform_bin }} apply -auto-approve \
-          -var="vmws_url=http://127.0.0.1:8697/api" \
           -var="vmws_user={{ vmws_user }}" \
           -var="vmws_password={{ vmws_pass }}" \
           -var="iso_path={{ iso_path }}" \
-          2>&1 | tee terraform_apply.log
+          -var="vm_name={{ vm_name }}" \
+          -var="memory_mb={{ memory_mb }}" \
+          -var="vcpus={{ vcpus }}" \
+          -var="disk_size_gb={{ os_disk_size_gb }}"
       args:
         chdir: "{{ terraform_dir }}"
-        executable: /bin/bash
       become: true
       become_user: "{{ vm_admin_user }}"
       environment:
-        # THESE ARE THE ONES THE PROVIDER IS ASKING FOR IN YOUR LOGS
         VMWS_ENDPOINT: "http://127.0.0.1:8697/api"
         VMWS_USERNAME: "{{ vmws_user }}"
         VMWS_PASSWORD: "{{ vmws_pass }}"
+      register: tf_result
+
+    - name: Show Terraform Output
+      debug:
+        msg: "{{ tf_result.stdout_lines }}"
 
 
 
