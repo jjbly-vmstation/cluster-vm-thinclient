@@ -29,7 +29,7 @@ source "vmware-iso" "windows_11" {
   boot_command = [
     "<enter><wait><enter><wait><enter><wait><enter><wait><enter>"
   ]
-  boot_wait = "1s"
+  boot_wait = "3s"
 
 
   # Allow VNC from your main computer (not just 127.0.0.1)
