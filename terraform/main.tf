@@ -12,12 +12,12 @@ terraform {
 # It uses the 'vmrun' utility on the host
 
 resource "vmware-desktop_virtual_machine" "windows_vm" {
-  name     = var.vm_name [cite: 5]
+  name     = var.vm_name
   target_os = "windows11-64"
   
   # Resource Specs
-  cpus      = var.vcpus [cite: 2, 5]
-  memory    = var.memory_mb [cite: 5]
+  cpus      = var.vcpus
+  memory    = var.memory_mb
   firmware  = "efi" 
 
   # Storage
@@ -28,7 +28,7 @@ resource "vmware-desktop_virtual_machine" "windows_vm" {
   }
 
   cdrom {
-    path = var.iso_path [cite: 2, 5]
+    path = var.iso_path
   }
 
   detach = false
