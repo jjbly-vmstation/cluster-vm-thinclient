@@ -1,5 +1,5 @@
 ---
-- name: One-Time Automated Windows 11 Build
+- name: End-to-End Windows 11 Automation (Packer + Terraform)
   hosts: homelab
   become: true
   vars_files:
@@ -11,20 +11,30 @@
     template_path: "/home/vmadmin/vmware/win11-template/win11-template.vmx"
 
   tasks:
-    - name: Ensure Packer is installed
+    # --- PHASE 1: SYSTEM SETUP ---
+    - name: Add HashiCorp Repo
+      shell: dnf config-manager --add-repo https://rpm.releases.hashicorp.com/RHEL/hashicorp.repo
+      args:
+        creates: /etc/yum.repos.d/hashicorp.repo
+
+    - name: Install Packer and Terraform
       dnf:
-        name: packer
+        name: 
+          - packer
+          - terraform
         state: present
 
-    - name: Create project directories
+    - name: Create project structure
       file:
         path: "{{ item }}"
         state: directory
         owner: vmadmin
         group: vmadmin
+        mode: '0755'
       loop: ["{{ packer_dir }}", "{{ terraform_dir }}"]
 
-    - name: Sync project (Excluding sensitive XML)
+    # --- PHASE 2: CONFIG & SECRETS ---
+    - name: Sync codebase (Excluding sensitive XML)
       ansible.posix.synchronize:
         src: "../../"
         dest: "{{ project_root }}/"
@@ -32,7 +42,7 @@
         delete: yes
         rsync_opts: ["--exclude=packer/autounattend.xml"]
 
-    - name: Generate autounattend.xml from template
+    - name: Generate Secure autounattend.xml from Template
       template:
         src: "../../packer/autounattend.xml.j2"
         dest: "{{ packer_dir }}/autounattend.xml"
@@ -40,16 +50,23 @@
         group: vmadmin
         mode: '0600'
 
-    - name: Run Packer Build
+    # --- PHASE 3: THE BUILD ---
+    - name: Check for existing Golden Image
+      stat:
+        path: "{{ template_path }}"
+      register: template_file
+
+    - name: Initialize and Build Packer Template
       shell: |
         packer init .
         packer build -force win11.pkr.hcl
       args:
         chdir: "{{ packer_dir }}"
       become_user: vmadmin
-      register: packer_out
+      when: not template_file.stat.exists
 
-    - name: Terraform Deploy (Clone)
+    # --- PHASE 4: THE DEPLOY ---
+    - name: Deploy VM via Terraform Clone
       shell: |
         terraform init -upgrade
         terraform apply -auto-approve -var="sourceid={{ template_path }}"
@@ -57,7 +74,7 @@
         chdir: "{{ terraform_dir }}"
       become_user: vmadmin
 
-    - name: Cleanup sensitive XML
+    - name: Cleanup Secrets
       file:
         path: "{{ packer_dir }}/autounattend.xml"
         state: absent
