@@ -19,14 +19,13 @@ source "vmware-iso" "windows_11" {
   iso_checksum     = "none"
   shutdown_command = "shutdown /s /t 10 /f /d p:4:1"
   guest_os_type    = "windows11-64"
-  headless         = true
   vm_name          = "win11-template"
   output_directory = "/home/vmadmin/vmware/win11-template"
   
   cpus             = 4
   memory           = 8192
   disk_size        = 65536
-  headless         = false 
+  headless         = true
 
   network_adapter_type = "e1000e"
   ssh_username         = "admin"
