@@ -113,9 +113,14 @@
     - name: Run terraform apply
       shell: |
         {{ terraform_bin }} apply -auto-approve \
+          -input=false \
           -var="vmws_user={{ vmws_user }}" \
           -var="vmws_password={{ vmws_pass }}" \
-          2>&1 | tee terraform_apply.log
+          -var="vm_name={{ vm_name | default('windows-thinclient') }}" \
+          -var="iso_path={{ iso_path }}" \
+          -var="memory_mb={{ memory_mb | default(12288) }}" \
+          -var="vcpus={{ vcpus | default(4) }}" \
+          -var="disk_size_gb={{ os_disk_size_gb | default(100) }}"
       args:
         chdir: "{{ terraform_dir }}"
         executable: /bin/bash
