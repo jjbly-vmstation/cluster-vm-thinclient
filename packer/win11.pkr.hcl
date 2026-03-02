@@ -46,10 +46,11 @@ source "vmware-iso" "windows_11" {
 
   floppy_files         = ["./autounattend.xml"]
   
-vmx_data = {
+  vmx_data = {
     "firmware"                      = "efi"
     "uefi.secureBoot.enabled"       = "TRUE"
     "managedVM.autoAddVTPM"         = "software" # This adds the Virtual TPM
+  }
 }
 
 # 3. THE MISSING PIECE: The Build Block
