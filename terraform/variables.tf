@@ -21,7 +21,7 @@ variable "vmws_password" {
 variable "vm_name" {
   description = "VM name"
   type        = string
-  default     = "windows-11-enterprise"
+  default     = "windows-thinclient"
 }
 
 variable "memory_mb" {

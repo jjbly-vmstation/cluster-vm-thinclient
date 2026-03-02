@@ -10,7 +10,6 @@
     terraform_dir: "/home/vmadmin/vmstation-org/cluster-vm-thinclient/terraform"
     vmrest_port: 8697
     vm_admin_user: "vmadmin"
-    # ADD THESE HERE:
     vm_name: "windows-thinclient" 
     memory_mb: 12288
     vcpus: 4
