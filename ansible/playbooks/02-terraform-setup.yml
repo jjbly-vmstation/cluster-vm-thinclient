@@ -126,6 +126,11 @@
         executable: /bin/bash
       become: true
       become_user: "{{ vm_admin_user }}"
+      environment:
+        # THESE ARE THE ONES THE PROVIDER IS ASKING FOR IN YOUR LOGS
+        VMWS_ENDPOINT: "http://127.0.0.1:8697/api"
+        VMWS_USERNAME: "{{ vmws_user }}"
+        VMWS_PASSWORD: "{{ vmws_pass }}"
 
 
 
