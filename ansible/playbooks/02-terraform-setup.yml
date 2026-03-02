@@ -116,13 +116,10 @@
         {{ terraform_bin }} apply -auto-approve \
           -var="vmws_user={{ vmws_user }}" \
           -var="vmws_password={{ vmws_pass }}" \
-          -var="iso_path={{ iso_path }}" \
-          -var="vm_name={{ vm_name }}" \
-          -var="memory_mb={{ memory_mb }}" \
-          -var="vcpus={{ vcpus }}" \
-          -var="disk_size_gb={{ os_disk_size_gb }}"
+          2>&1 | tee terraform_apply.log
       args:
         chdir: "{{ terraform_dir }}"
+        executable: /bin/bash
       become: true
       become_user: "{{ vm_admin_user }}"
       environment:
@@ -130,10 +127,6 @@
         VMWS_USERNAME: "{{ vmws_user }}"
         VMWS_PASSWORD: "{{ vmws_pass }}"
       register: tf_result
-
-    - name: Show Terraform Output
-      debug:
-        msg: "{{ tf_result.stdout_lines }}"
 
 
 
