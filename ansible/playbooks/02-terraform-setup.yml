@@ -115,23 +115,17 @@
 
     - name: Run terraform apply and stream to log
       shell: |
-        {{ terraform_bin }} apply -auto-approve 2>&1 | tee terraform_apply.log
+        {{ terraform_bin }} apply -auto-approve \
+          -var="vmws_url=http://127.0.0.1:8697/api" \
+          -var="vmws_user={{ vmws_user }}" \
+          -var="vmws_password={{ vmws_pass }}" \
+          -var="iso_path={{ iso_path }}" \
+          2>&1 | tee terraform_apply.log
       args:
         chdir: "{{ terraform_dir }}"
         executable: /bin/bash
       become: true
       become_user: "{{ vm_admin_user }}"
-      environment:
-        # Layer 1: Satisfy the 'variables.tf' file (TF_VAR_ prefix)
-        TF_VAR_vmws_url: "http://127.0.0.1:8697/api"
-        TF_VAR_vmws_user: "{{ vmws_user }}"
-        TF_VAR_vmws_password: "{{ vmws_pass }}"
-        TF_VAR_iso_path: "{{ iso_path }}"
-
-        # Layer 2: Satisfy the Provider's internal legacy checks
-        VMWS_ENDPOINT: "http://127.0.0.1:8697/api"
-        VMWS_USERNAME: "{{ vmws_user }}"  # FIXED: Changed from VMWS_USER to VMWS_USERNAME
-        VMWS_PASSWORD: "{{ vmws_pass }}"
 
 
 
