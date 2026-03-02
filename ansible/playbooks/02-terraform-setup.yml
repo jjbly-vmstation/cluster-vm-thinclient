@@ -46,7 +46,7 @@
 
     - name: Synchronize Terraform configuration to Homelab
       ansible.posix.synchronize:
-        src: "../../terraform/" 
+        src: "../terraform/" 
         dest: "{{ terraform_dir }}/"
         recursive: yes
         delete: yes

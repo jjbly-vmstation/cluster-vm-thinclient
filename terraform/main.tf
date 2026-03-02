@@ -1,44 +1,35 @@
 terraform {
-  required_version = ">= 1.5.0"
+  required_version = ">= 1.5.0" [cite: 1]
   required_providers {
-    vmworkstation = {
-      source  = "elsudano/vmworkstation"
-      version = "2.0.1"
+    vmware = {
+      source  = "chap-at/vmware-desktop"
+      version = "1.2.1"
     }
   }
 }
 
-provider "vmworkstation" {
-  # These are the specific names the provider v2.0.1 requires
-  endpoint = var.vmws_url
-  username = var.vmws_user
-  password = var.vmws_password
-  https    = false
-}
+# No provider block needed for local workstation execution
+# It uses the 'vmrun' utility on the host
 
-resource "vmworkstation_virtual_machine" "windows_vm" {
-  vm_name = var.vm_name
-  vm_path = "[standard]/${var.vm_name}"
+resource "vmware-desktop_virtual_machine" "windows_vm" {
+  name     = var.vm_name [cite: 5]
+  target_os = "windows11-64"
+  
+  # Resource Specs
+  cpus      = var.vcpus [cite: 2, 5]
+  memory    = var.memory_mb [cite: 5]
+  firmware  = "efi" 
 
-  guest_os_type = "windows11-64"
-  mem_size      = var.memory_mb
-  num_cpus      = var.vcpus
-  firmware      = "efi"
-
-  disks = [
-    {
-      size = var.disk_size_gb
-    }
-  ]
-
-  cdrom = {
-    iso_path = var.iso_path
+  # Storage
+  gui = true
+  
+  network_adapter {
+    type = "bridged" 
   }
 
-  network_interfaces = [
-    {
-      network_name = "Bridged"
-    }
-  ]
-  power_on = true
+  cdrom {
+    path = var.iso_path [cite: 2, 5]
+  }
+
+  detach = false
 }
