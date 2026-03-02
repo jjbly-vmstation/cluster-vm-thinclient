@@ -16,7 +16,7 @@ provider "vmworkstation" {
   https    = false
 }
 
-resource "vmworkstation_vm" "windows_vm" {
+resource "vmworkstation_virtual_machine" "windows_vm" {
   vm_name = var.vm_name
   vm_path = "[standard]/${var.vm_name}"
 
