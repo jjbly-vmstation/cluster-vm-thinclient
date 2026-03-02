@@ -1,5 +1,5 @@
 terraform {
-  required_version = ">= 1.5.0" [cite: 1]
+  required_version = ">= 1.5.0"
   required_providers {
     vmware = {
       source  = "chap-at/vmware-desktop"
