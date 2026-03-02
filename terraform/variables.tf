@@ -42,6 +42,16 @@ variable "disk_size_gb" {
   default     = 100
 }
 
+variable "data_disk_size_gb" {
+  type    = number
+  default = 100
+}
+
+variable "mac_address" {
+  type    = string
+  default = "52:54:00:00:f0:0d"
+}
+
 variable "iso_path" {
   description = "Path to Windows 11 ISO"
   type        = string
