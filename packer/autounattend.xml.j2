@@ -76,7 +76,7 @@
                 <LocalAccounts>
                     <LocalAccount wcm:action="add">
                         <Password>
-                            <Value>{{ vm_password }}</Value>   <!-- Variable from Packer -->
+                            <Value>{{ vmws_pass }}</Value>   <!-- Variable from Packer -->
                             <PlainText>true</PlainText>
                         </Password>
                         <Description>Local Administrator</Description>
@@ -88,7 +88,7 @@
             </UserAccounts>
             <AutoLogon>
                 <Password>
-                    <Value>{{ vm_password }}</Value>
+                    <Value>{{ vmws_pass }}</Value>
                     <PlainText>true</PlainText>
                 </Password>
                 <Enabled>true</Enabled>
