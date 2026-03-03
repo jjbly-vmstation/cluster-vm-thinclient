@@ -61,8 +61,6 @@
       args:
         chdir: "{{ packer_dir }}"
       become_user: vmadmin
-      async: 7200
-      poll: 30
 
     - name: Clean up answer file
       file:
