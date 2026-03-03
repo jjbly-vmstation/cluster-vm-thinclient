@@ -20,7 +20,7 @@ source "vmware-iso" "windows_11" {
   output_directory   = "/mnt/storage/vmware/win11-template"
 
   # Force Hardware Version 21 for NVMe/VTPM support on RHEL 10
-  virtual_hardware_version = "21"
+  version = "21"
 
   # Communicator Fix: Mandatory for Windows builds to avoid SSH errors
   communicator       = "winrm"
