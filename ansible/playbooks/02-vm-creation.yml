@@ -51,6 +51,25 @@
       become_user: vmadmin
       args:
         creates: "/home/vmadmin/.config/packer/plugins/github.com/hashicorp/vmware"
+    
+    
+    - name: Ensure VMware Virtual Networks are configured and running
+      become: true
+      block:
+        - name: Start VMware network services
+          command: /usr/bin/vmware-networks --start
+          register: vmware_net_start
+          changed_when: "'Started' in vmware_net_start.stdout"
+          failed_when: false
+
+    - name: Ensure VMware services are enabled and started via systemd
+      systemd:
+        name: "{{ item }}"
+        enabled: true
+        state: started
+      loop:
+        - vmware
+        - vmware-USBArbitrator
 
     - name: Run Packer build
       shell: |
