@@ -37,12 +37,16 @@ source "vmware-iso" "windows_11" {
   headless          = true        # Set false to see the console (debug)
 
   network_adapter_type = "e1000e"
-  floppy_files         = ["./autounattend.xml"]
-
+  cd_files = ["./autounattend.xml"]
+  cd_label = "AUTOMATION"
+  
+  
+  
   vmx_data = {
     "firmware"                = "efi"
     "uefi.secureBoot.enabled" = "TRUE"
     "managedVM.autoAddVTPM"   = "software"
+    "bios.bootOrder"          = "cdrom"
   }
 
   # WinRM communicator – Windows will be configured to accept WinRM in autounattend
