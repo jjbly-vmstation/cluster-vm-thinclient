@@ -7,58 +7,61 @@ packer {
   }
 }
 
-# 1. Define the Variable
 variable "vm_password" {
   type      = string
   sensitive = true
 }
 
-# 2. Configure the Source
 source "vmware-iso" "windows_11" {
-  iso_url          = "/home/vmadmin/iso/en-us_windows_11_business_editions_version_25h2_updated_feb_2026_x64_dvd_9271bf68.iso"
-  iso_checksum     = "none"
-  shutdown_command = "shutdown /s /t 10 /f /d p:4:1"
-  guest_os_type    = "windows11-64"
-  vm_name          = "win11-template"
-  output_directory = "/home/vmadmin/vmware/win11-template"
+  iso_url           = "/home/vmadmin/iso/en-us_windows_11_business_editions_version_25h2_updated_feb_2026_x64_dvd_9271bf68.iso"
+  iso_checksum      = "none"   # Use "sha256:..." for production
+  guest_os_type     = "windows11-64"
+  vm_name           = "win11-template"
+  output_directory  = "/home/vmadmin/vmware/win11-template"
 
-  shutdown_timeout = "30m"  # Give it up to an hour to finish
-
-
-  # This sends the "Enter" key repeatedly the moment the BIOS/UEFI starts
+  # Boot order: wait 3s, then press space to boot from CD
+  boot_wait         = "3s"
   boot_command = [
-    "<enter><wait><enter><wait><enter><wait><enter><wait><enter>"
+    "<spacebar><wait><wait>"
   ]
-  boot_wait = "3s"
 
-
-  # Allow VNC from your main computer (not just 127.0.0.1)
-  vnc_bind_address = "0.0.0.0"
+  vnc_bind_address  = "0.0.0.0"
   vnc_port_min      = 5900
   vnc_port_max      = 5910
+  vnc_password      = "your-vnc-password"   # Set a known password
 
-
-  cpus             = 4
-  memory           = 12288
-  disk_size        = 65536
-  headless         = true
+  cpus              = 4
+  memory            = 12288
+  disk_size         = 100 * 1024   # 100 GB
+  headless          = false        # Set false to see the console (debug)
 
   network_adapter_type = "e1000e"
-  ssh_username         = "admin"
-  ssh_password         = var.vm_password 
-  communicator         = "none" 
-
   floppy_files         = ["./autounattend.xml"]
-  
+
   vmx_data = {
-    "firmware"                      = "efi"
-    "uefi.secureBoot.enabled"       = "TRUE"
-    "managedVM.autoAddVTPM"         = "software" # This adds the Virtual TPM
+    "firmware"                = "efi"
+    "uefi.secureBoot.enabled" = "TRUE"
+    "managedVM.autoAddVTPM"   = "software"
   }
+
+  # WinRM communicator – Windows will be configured to accept WinRM in autounattend
+  communicator       = "winrm"
+  winrm_username     = "admin"
+  winrm_password     = var.vm_password
+  winrm_timeout      = "4h"
+  winrm_use_ssl      = false
+  winrm_insecure     = true
+
+  # Shutdown command will be executed via WinRM after provisioning
+  shutdown_command   = "shutdown /s /t 10 /f /d p:4:1 /c \"Packer Shutdown\""
+  shutdown_timeout   = "30m"
 }
 
-# 3. THE MISSING PIECE: The Build Block
-# This is what Packer is complaining is missing!
 build {
   sources = ["source.vmware-iso.windows_11"]
+
+  # Optional: provisioners to run Masgrave after WinRM is ready
+  provisioner "powershell" {
+    scripts = ["./masgrave.ps1"]
+  }
 }
