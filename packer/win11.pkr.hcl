@@ -45,7 +45,7 @@ source "vmware-iso" "windows_11" {
   vmx_data = {
     "firmware"                = "efi"
     "uefi.secureBoot.enabled" = "TRUE"
-    "managedVM.autoAddVTPM"   = "software"
+    "managedVM.autoAddVTPM"   = ""
     "bios.bootOrder"          = "hdd,cdrom"
   }
   vmx_data_post = {
