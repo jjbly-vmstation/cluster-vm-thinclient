@@ -17,7 +17,7 @@ source "vmware-iso" "windows_11" {
   iso_checksum      = "none"   # Use "sha256:..." for production
   guest_os_type     = "windows11-64"
   vm_name           = "win11-template"
-  output_directory  = "/home/vmadmin/vmware/win11-template"
+  output_directory  = "/mnt/storage/vmware/win11-template"
 
   # Boot order: wait 3s, then press space to boot from CD
   boot_wait         = "3s"
