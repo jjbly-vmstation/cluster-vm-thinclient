@@ -40,6 +40,12 @@ source "vmware-iso" "windows_11" {
   network_adapter_type = "e1000e"
   headless           = true
 
+  # VNC Configuration for Remmina Access
+  vnc_bind_address     = "0.0.0.0"
+  vnc_port_min         = 5900
+  vnc_port_max         = 5900
+  vnc_disable_password = true
+
   # Spamming spacebar to catch the "Press any key to boot from CD" prompt
   boot_wait          = "5s"
   boot_command       = ["<spacebar><wait><spacebar><wait><spacebar><wait><spacebar><wait><spacebar>"]
