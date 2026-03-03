@@ -47,8 +47,8 @@ source "vmware-iso" "windows_11" {
   vnc_disable_password = true
 
   # Spamming spacebar to catch the "Press any key to boot from CD" prompt
-  boot_wait          = "5s"
-  boot_command       = ["<spacebar><wait><spacebar><wait><spacebar><wait><spacebar><wait><spacebar>"]
+  boot_wait          = "2s"
+  boot_command       = ["<spacebar><wait><enter><wait><spacebar><wait><enter><wait><spacebar>"]
 
   cd_files = ["./autounattend.xml"]
   cd_label = "AUTOMATION"
