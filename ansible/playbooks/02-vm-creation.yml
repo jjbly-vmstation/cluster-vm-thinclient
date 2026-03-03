@@ -76,7 +76,7 @@
         export PACKER_LOG=1
         export TMPDIR=/mnt/storage/vmware/
         packer init win11.pkr.hcl
-        packer build -force -on-error=abort -var "vm_password={{ vmws_pass }}" win11.pkr.hcl > /mnt/storage/vmware/packer-win11-build.log 2>&1
+        packer build -force -on-error=ask -var "vm_password={{ vmws_pass }}" win11.pkr.hcl > /mnt/storage/vmware/packer-win11-build.log 2>&1
       args:
         chdir: "{{ packer_dir }}"
       become_user: vmadmin

@@ -58,8 +58,6 @@ source "vmware-iso" "windows_11" {
     "uefi.secureBoot.enabled" = "TRUE"
     "managedVM.autoAddVTPM"   = "software"
     "bios.bootOrder"          = "cdrom,hdd"
-    "sata0:0.present"         = "TRUE"
-    "sata0:0.deviceType"      = "cdrom-image"
     "mouse.vusb.type"         = "tablet"
     "usb_xhci.present"        = "TRUE"
   }
