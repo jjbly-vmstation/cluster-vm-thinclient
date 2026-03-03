@@ -34,7 +34,8 @@ source "vmware-iso" "windows_11" {
   cpus              = 4
   memory            = 12288
   disk_size         = 100 * 1024   # 100 GB
-  disk_adapter_type = "ide"
+  disk_adapter_type = "nvme"
+  cdrom_adapter_type= "sata"
   headless          = true        # Set false to see the console (debug)
 
   network_adapter_type = "e1000e"
