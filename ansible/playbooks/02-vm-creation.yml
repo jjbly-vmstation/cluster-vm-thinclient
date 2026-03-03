@@ -54,11 +54,14 @@
 
     - name: Run Packer build
       shell: |
+        export PACKER_LOG=1
         packer init win11.pkr.hcl
-        packer build -force -var "vm_password={{ vmws_pass }}" win11.pkr.hcl
+        packer build -force -var "vm_password={{ vmws_pass }}" win11.pkr.hcl > /tmp/packer-win11-build.log 2>&1
       args:
         chdir: "{{ packer_dir }}"
       become_user: vmadmin
+      async: 3600  
+      poll: 30     # Checks status every 30 seconds
 
     - name: Clean up answer file
       file:
