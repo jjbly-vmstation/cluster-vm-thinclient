@@ -28,8 +28,9 @@ source "vmware-iso" "windows_11" {
   vnc_bind_address  = "0.0.0.0"
   vnc_port_min      = 5900
   vnc_port_max      = 5910
-  vnc_password      = "your-vnc-password"   # Set a known password
-
+  vnc_disable_password = true   # No password required for VNC
+  
+  
   cpus              = 4
   memory            = 12288
   disk_size         = 100 * 1024   # 100 GB
