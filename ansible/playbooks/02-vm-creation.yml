@@ -1,30 +1,28 @@
----
-- name: Phase 1 - Build Golden Image (Packer)
+- name: Build Windows 11 Golden Image for thinclient with Packer
   hosts: homelab
   become: true
   vars_files:
     - "/opt/vmstation-org/cluster-setup/ansible/inventory/group_vars/compute_nodes.yml"
   vars:
-    project_root: "/home/vmadmin/vmstation-org/cluster-vm-thinclient"
-    packer_dir: "{{ project_root }}/packer"
-    template_path: "/home/vmadmin/vmware/win11-template/win11-template.vmx"
+    packer_dir: "/home/vmadmin/vmstation-org/cluster-vm-thinclient/packer"
+    iso_path: "/home/vmadmin/iso/en-us_windows_11_business_editions_version_25h2_updated_feb_2026_x64_dvd_9271bf68.iso"
 
   tasks:
-    - name: Install Packer
+    - name: Ensure Packer is installed
       shell: |
         dnf config-manager --add-repo https://rpm.releases.hashicorp.com/RHEL/hashicorp.repo
         dnf install -y packer
       args:
         creates: /usr/bin/packer
 
-    - name: Create project structure
+    - name: Create packer directory
       file:
         path: "{{ packer_dir }}"
         state: directory
         owner: vmadmin
         group: vmadmin
 
-    - name: Generate Secure autounattend.xml from Template
+    - name: Generate autounattend.xml from template
       template:
         src: "../../packer/autounattend.xml.j2"
         dest: "{{ packer_dir }}/autounattend.xml"
@@ -32,25 +30,29 @@
         group: vmadmin
         mode: '0600'
 
-    - name: Sync Packer build files
-      ansible.posix.synchronize:
-        src: "../../packer/"
+    - name: Copy Packer template and scripts
+      copy:
+        src: "{{ item }}"
         dest: "{{ packer_dir }}/"
-        recursive: yes
-        rsync_opts: ["--exclude=autounattend.xml"]
+        owner: vmadmin
+        group: vmadmin
+      loop:
+        - "../../packer/win11.pkr.hcl"
+        - "../../packer/masgrave.ps1"
 
-    - name: Check if Golden Image (Template) already exists
+    - name: Verify ISO exists
       stat:
-        path: "{{ template_path }}"
-      register: golden_image_stat
+        path: "{{ iso_path }}"
+      register: iso_check
+      failed_when: not iso_check.stat.exists
 
-    - name: Install Packer VMware Plugin
+    - name: Install Packer VMware plugin
       shell: packer plugins install github.com/hashicorp/vmware
       become_user: vmadmin
       args:
         creates: "/home/vmadmin/.config/packer/plugins/github.com/hashicorp/vmware"
-    
-    - name: Run Packer Build
+
+    - name: Run Packer build
       shell: |
         packer init win11.pkr.hcl
         packer build -force -var "vm_password={{ vmws_pass }}" win11.pkr.hcl
@@ -58,7 +60,7 @@
         chdir: "{{ packer_dir }}"
       become_user: vmadmin
 
-    - name: Cleanup Secrets
+    - name: Clean up answer file
       file:
         path: "{{ packer_dir }}/autounattend.xml"
         state: absent
