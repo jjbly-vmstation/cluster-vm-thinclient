@@ -8,10 +8,40 @@
                     <DiskID>0</DiskID>
                     <WillWipeDisk>true</WillWipeDisk>
                     <CreatePartitions>
-                        <!-- Let Windows create the default UEFI partitions: EFI, MSR, Primary -->
+                        <CreatePartition wcm:action="add">
+                            <Order>1</Order>
+                            <Size>100</Size>
+                            <Type>EFI</Type>
+                        </CreatePartition>
+                        <CreatePartition wcm:action="add">
+                            <Order>2</Order>
+                            <Size>16</Size>
+                            <Type>MSR</Type>
+                        </CreatePartition>
+                        <CreatePartition wcm:action="add">
+                            <Order>3</Order>
+                            <Extend>true</Extend>
+                            <Type>Primary</Type>
+                        </CreatePartition>
                     </CreatePartitions>
                     <ModifyPartitions>
-                        <!-- No need to specify, Windows will use defaults -->
+                        <ModifyPartition wcm:action="add">
+                            <Order>1</Order>
+                            <PartitionID>1</PartitionID>
+                            <Label>System</Label>
+                            <Format>FAT32</Format>
+                        </ModifyPartition>
+                        <ModifyPartition wcm:action="add">
+                            <Order>2</Order>
+                            <PartitionID>2</PartitionID>
+                            <Label>MSR</Label>
+                        </ModifyPartition>
+                        <ModifyPartition wcm:action="add">
+                            <Order>3</Order>
+                            <PartitionID>3</PartitionID>
+                            <Label>Windows</Label>
+                            <Format>NTFS</Format>
+                        </ModifyPartition>
                     </ModifyPartitions>
                 </Disk>
             </DiskConfiguration>
@@ -20,12 +50,12 @@
                     <InstallFrom>
                         <MetaData wcm:action="add">
                             <Key>/IMAGE/NAME</Key>
-                            <Value>Windows 11 Enterprise</Value>   <!-- Change to your edition -->
+                            <Value>Windows 11 Enterprise</Value>
                         </MetaData>
                     </InstallFrom>
                     <InstallTo>
                         <DiskID>0</DiskID>
-                        <PartitionID>3</PartitionID>        <!-- Windows will place OS on partition 3 (after EFI and MSR) -->
+                        <PartitionID>3</PartitionID>
                     </InstallTo>
                 </OSImage>
             </ImageInstall>
@@ -33,6 +63,9 @@
                 <AcceptEula>true</AcceptEula>
                 <FullName>Admin</FullName>
                 <Organization>Homelab</Organization>
+                <ProductKey>
+                    <Key>XGVPP-NMH47-7TTHJ-W3FW7-8HV2C</Key>   <!-- Generic Windows 11 Enterprise Key -->
+                </ProductKey>
             </UserData>
             <RunSynchronous>
                 <RunSynchronousCommand wcm:action="add">
@@ -50,17 +83,15 @@
             </RunSynchronous>
         </component>
     </settings>
-
     <settings pass="offlineServicing">
         <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
             <ComputerName>WIN-THINCLIENT</ComputerName>
         </component>
     </settings>
-
     <settings pass="specialize">
         <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
             <ComputerName>WIN-THINCLIENT</ComputerName>
-            <TimeZone>Eastern Standard Time</TimeZone>   <!-- Adjust as needed -->
+            <TimeZone>Eastern Standard Time</TimeZone>
         </component>
         <component name="Microsoft-Windows-TerminalServices-LocalSessionManager" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
             <fDenyTSConnections>false</fDenyTSConnections>
@@ -69,14 +100,13 @@
             <UserAuthentication>0</UserAuthentication>
         </component>
     </settings>
-
     <settings pass="oobeSystem">
         <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
             <UserAccounts>
                 <LocalAccounts>
                     <LocalAccount wcm:action="add">
                         <Password>
-                            <Value>{{ vmws_pass }}</Value>   <!-- Variable from Packer -->
+                            <Value>{{ vmws_pass }}</Value>
                             <PlainText>true</PlainText>
                         </Password>
                         <Description>Local Administrator</Description>
@@ -98,28 +128,27 @@
             <FirstLogonCommands>
                 <SynchronousCommand wcm:action="add">
                     <Order>1</Order>
-                    <CommandLine>powershell -ExecutionPolicy Bypass -File C:\Windows\Setup\Scripts\masgrave.ps1</CommandLine>
-                    <Description>Run Masgrave Activation</Description>
-                </SynchronousCommand>
-                <SynchronousCommand wcm:action="add">
-                    <Order>2</Order>
                     <CommandLine>powershell -Command "Enable-PSRemoting -Force"</CommandLine>
                 </SynchronousCommand>
                 <SynchronousCommand wcm:action="add">
-                    <Order>3</Order>
+                    <Order>2</Order>
                     <CommandLine>netsh advfirewall firewall set rule name="Windows Remote Management (HTTP-In)" new enable=yes</CommandLine>
                 </SynchronousCommand>
                 <SynchronousCommand wcm:action="add">
-                    <Order>4</Order>
+                    <Order>3</Order>
                     <CommandLine>winrm set winrm/config/client/auth @{Basic="true"}</CommandLine>
                 </SynchronousCommand>
                 <SynchronousCommand wcm:action="add">
-                    <Order>5</Order>
+                    <Order>4</Order>
                     <CommandLine>winrm set winrm/config/service/auth @{Basic="true"}</CommandLine>
                 </SynchronousCommand>
                 <SynchronousCommand wcm:action="add">
-                    <Order>6</Order>
+                    <Order>5</Order>
                     <CommandLine>winrm set winrm/config/service @{AllowUnencrypted="true"}</CommandLine>
+                </SynchronousCommand>
+                <SynchronousCommand wcm:action="add">
+                    <Order>6</Order>
+                    <CommandLine>powershell -ExecutionPolicy Bypass -File C:\Windows\Setup\Scripts\masgrave.ps1</CommandLine>
                 </SynchronousCommand>
             </FirstLogonCommands>
             <OOBE>
