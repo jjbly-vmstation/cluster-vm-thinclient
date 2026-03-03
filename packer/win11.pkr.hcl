@@ -38,7 +38,7 @@ source "vmware-iso" "windows_11" {
   cdrom_adapter_type = "sata"
   headless           = true
 
-  network_adapter_type = "e1000e"
+  network_adapter_type = "vmxnet3"
   cd_files = ["./autounattend.xml"]
   cd_label = "AUTOMATION"
   
