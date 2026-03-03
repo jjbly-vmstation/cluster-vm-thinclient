@@ -30,7 +30,7 @@ source "vmware-iso" "windows_11" {
   vnc_port_max      = 5900
   vnc_disable_password = true   # No password required for VNC
   
-  
+  disk_type_id      = "0"
   cpus              = 4
   memory            = 12288
   disk_size         = 100 * 1024   # 100 GB
