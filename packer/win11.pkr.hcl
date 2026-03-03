@@ -13,33 +13,37 @@ variable "vm_password" {
 }
 
 source "vmware-iso" "windows_11" {
+  # Change to the absolute path of your ISO
   iso_url            = "/home/vmadmin/iso/en-us_windows_11_business_editions_version_25h2_updated_feb_2026_x64_dvd_9271bf68.iso"
   iso_checksum       = "none"
   guest_os_type      = "windows11-64"
   vm_name            = "win11-template"
   output_directory   = "/mnt/storage/vmware/win11-template"
 
-  # Aggressive spacebar spam to catch the "Press any key to boot from CD" prompt
-  boot_wait          = "3s"
-  boot_command = [
-    "<spacebar><wait><spacebar><wait><spacebar><wait><spacebar><wait><spacebar>"
-  ]
+  # Communicator Fix: Tells Packer to use WinRM instead of SSH
+  communicator       = "winrm"
+  winrm_username     = "admin"
+  winrm_password     = var.vm_password
+  winrm_timeout      = "2h"
+  winrm_use_ssl      = false
+  winrm_insecure     = true
 
-  vnc_bind_address     = "0.0.0.0"
-  vnc_port_min         = 5900
-  vnc_port_max         = 5900
-  vnc_disable_password = true
-  
-  disk_type_id       = "0"
+  # Graceful shutdown for Terraform preparation
+  shutdown_command   = "shutdown /s /t 10 /f /d p:4:1 /c \"Packer Shutdown\""
+
+  # Hardware Configuration
   cpus               = 4
   memory             = 12288
-  disk_size          = 102400 # 100 GB
+  disk_size          = 102400
   disk_adapter_type  = "nvme"
-  cdrom_adapter_type = "ide" # IDE is more reliable for booting Windows ISOs in VMware
+  cdrom_adapter_type = "ide"
+  network_adapter_type = "e1000"
   headless           = true
 
-  # e1000 is used for built-in driver compatibility to avoid OOBE crashes
-  network_adapter_type = "e1000"
+  # Boot Logic
+  boot_wait          = "3s"
+  boot_command       = ["<spacebar><wait><spacebar><wait><spacebar><wait><spacebar><wait><spacebar>"]
+
   cd_files = ["./autounattend.xml"]
   cd_label = "AUTOMATION"
   
@@ -47,32 +51,17 @@ source "vmware-iso" "windows_11" {
     "firmware"                = "efi"
     "uefi.secureBoot.enabled" = "TRUE"
     "managedVM.autoAddVTPM"   = "software"
-    
-    # FORCING BOOT ORDER: Ensures the ISO is checked before the empty NVMe drive
     "bios.bootOrder"          = "cdrom,hdd"
-    
-    # Explicitly enable the primary controller for the ISO
     "ide0:0.present"          = "TRUE"
     "ide0:0.deviceType"       = "cdrom-image"
-
-    # Absolute pointing device for VNC mouse tracking
-    "usb.present"             = "TRUE"
-    "usb_xhci.present"        = "TRUE"
-    "mouse.vusb.present"      = "TRUE"
     "mouse.vusb.type"         = "tablet"
+    "usb_xhci.present"        = "TRUE"
   }
-
-  winrm_username = "admin"
-  winrm_password = var.vm_password
-  winrm_timeout  = "2h"
-  winrm_use_ssl  = false
-  winrm_insecure = true
 }
 
 build {
   sources = ["source.vmware-iso.windows_11"]
 
-  # Once WinRM is ready, this will execute the activation script
   provisioner "powershell" {
     script = "./masgrave.ps1"
   }

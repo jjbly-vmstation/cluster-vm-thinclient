@@ -133,7 +133,7 @@
                 <SynchronousCommand wcm:action="add">
                     <Order>1</Order>
                     <CommandLine>powershell -ExecutionPolicy Bypass -Command "Enable-PSRemoting -SkipNetworkProfileCheck -Force"</CommandLine>
-                    <Description>Enable WinRM Bypass</Description>
+                    <Description>Enable WinRM</Description>
                 </SynchronousCommand>
                 <SynchronousCommand wcm:action="add">
                     <Order>2</Order>
@@ -154,7 +154,6 @@
                 <SynchronousCommand wcm:action="add">
                     <Order>6</Order>
                     <CommandLine>powershell -ExecutionPolicy Bypass -Command "Start-Sleep -Seconds 30"</CommandLine>
-                    <Description>Wait for WinRM stability</Description>
                 </SynchronousCommand>
             </FirstLogonCommands>
         </component>
