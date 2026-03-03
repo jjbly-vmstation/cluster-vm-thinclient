@@ -48,6 +48,9 @@ source "vmware-iso" "windows_11" {
     "managedVM.autoAddVTPM"   = "software"
     "bios.bootOrder"          = "cdrom"
   }
+  vmx_data_post = {
+    "bios.bootOrder" = "hdd,cdrom"
+  }
 
   # WinRM communicator – Windows will be configured to accept WinRM in autounattend
   communicator       = "winrm"
