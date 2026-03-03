@@ -19,10 +19,10 @@ source "vmware-iso" "windows_11" {
   vm_name            = "win11-template"
   output_directory   = "/mnt/storage/vmware/win11-template"
 
-  # Force latest hardware to support NVMe and VTPM
+  # Force Hardware Version 21 for NVMe/VTPM support on RHEL 10
   virtual_hardware_version = "21"
 
-  # Communicator Settings
+  # Communicator Fix: Mandatory for Windows builds to avoid SSH errors
   communicator       = "winrm"
   winrm_username     = "admin"
   winrm_password     = var.vm_password
@@ -32,16 +32,15 @@ source "vmware-iso" "windows_11" {
 
   shutdown_command   = "shutdown /s /t 10 /f /d p:4:1 /c \"Packer Shutdown\""
 
-  # Hardware Layout
   cpus               = 4
   memory             = 12288
   disk_size          = 102400
   disk_adapter_type  = "nvme"
   cdrom_adapter_type = "sata"
-  network_adapter_type = "e1000"
+  network_adapter_type = "e1000e"
   headless           = true
 
-  # Boot Command
+  # Spamming spacebar to catch the "Press any key to boot from CD" prompt
   boot_wait          = "5s"
   boot_command       = ["<spacebar><wait><spacebar><wait><spacebar><wait><spacebar><wait><spacebar>"]
 
