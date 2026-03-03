@@ -46,8 +46,14 @@ source "vmware-iso" "windows_11" {
     "firmware"                = "efi"
     "uefi.secureBoot.enabled" = "TRUE"
     "managedVM.autoAddVTPM"   = "software"
-    "bios.bootOrder"          = "hdd,cdrom"
-    # FIX: Absolute pointing device for VNC mouse tracking
+    
+    # FORCING BOOT ORDER: This tells EFI to try the CD-ROM before the HDD
+    "bios.bootOrder"          = "cdrom,hdd"
+    
+    # Ensure the NVMe controller is present
+    "nvme.present"            = "TRUE"
+    
+    # Mouse settings for Cockpit/Remmina
     "usb.present"             = "TRUE"
     "usb_xhci.present"        = "TRUE"
     "mouse.vusb.present"      = "TRUE"
