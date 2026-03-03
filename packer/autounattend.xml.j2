@@ -44,29 +44,31 @@
                         <ModifyPartition wcm:action="add">
                             <Order>2</Order>
                             <PartitionID>2</PartitionID>
-                            <Label>MSR</Label>
-                        </ModifyPartition>
+                            </ModifyPartition>
                         <ModifyPartition wcm:action="add">
                             <Order>3</Order>
                             <PartitionID>3</PartitionID>
                             <Label>Windows</Label>
                             <Format>NTFS</Format>
+                            <Letter>C</Letter>
                         </ModifyPartition>
                     </ModifyPartitions>
                 </Disk>
             </DiskConfiguration>
+
             <ImageInstall>
                 <OSImage>
-                    <WillShowUI>OnError</WillShowUI> <InstallFrom>
+                    <InstallTo>
+                        <DiskID>0</DiskID>
+                        <PartitionID>3</PartitionID>
+                    </InstallTo>
+                    <WillShowUI>OnError</WillShowUI>
+                    <InstallFrom>
                         <MetaData wcm:action="add">
                             <Key>/IMAGE/NAME</Key>
                             <Value>Windows 11 Enterprise</Value>
                         </MetaData>
                     </InstallFrom>
-                    <InstallTo>
-                        <DiskID>0</DiskID>
-                        <PartitionID>3</PartitionID>
-                    </InstallTo>
                 </OSImage>
             </ImageInstall>
             <UserData>
