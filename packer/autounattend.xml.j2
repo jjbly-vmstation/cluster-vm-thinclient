@@ -15,23 +15,22 @@
             <DiskConfiguration>
                 <WillShowUI>OnError</WillShowUI>
                 <Disk wcm:action="add">
-                    <DiskID>2</DiskID>
-                    <WillWipeDisk>true</WillWipeDisk>
+                    <DiskID>0</DiskID> <WillWipeDisk>true</WillWipeDisk>
                     <CreatePartitions>
                         <CreatePartition wcm:action="add">
                             <Order>1</Order>
-                            <Type>EFI</Type>
                             <Size>100</Size>
+                            <Type>EFI</Type>
                         </CreatePartition>
                         <CreatePartition wcm:action="add">
                             <Order>2</Order>
-                            <Type>MSR</Type>
                             <Size>16</Size>
+                            <Type>MSR</Type>
                         </CreatePartition>
                         <CreatePartition wcm:action="add">
                             <Order>3</Order>
-                            <Type>Primary</Type>
                             <Extend>true</Extend>
+                            <Type>Primary</Type>
                         </CreatePartition>
                     </CreatePartitions>
                     <ModifyPartitions>
@@ -50,7 +49,6 @@
                             <PartitionID>3</PartitionID>
                             <Label>Windows</Label>
                             <Format>NTFS</Format>
-                            <Active>true</Active> 
                         </ModifyPartition>
                     </ModifyPartitions>
                 </Disk>
@@ -64,10 +62,9 @@
                         </MetaData>
                     </InstallFrom>
                     <InstallTo>
-                        <DiskID>2</DiskID>
-                        <PartitionID>3</PartitionID>
-                    </InstallTo>
-                    <WillShowUI>OnError</WillShowUI>
+                        <DiskID>0</DiskID>
+                        <PartitionID>3</PartitionID> </InstallTo>
+                    <WillShowUI>OnError</WillShowUI> 
                 </OSImage>
             </ImageInstall>
             <UserData>
