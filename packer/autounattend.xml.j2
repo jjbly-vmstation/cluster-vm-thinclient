@@ -166,18 +166,18 @@
                 </SynchronousCommand>
                 <SynchronousCommand wcm:action="add">
                     <Order>2</Order>
-                    <CommandLine>cmd.exe /c "net stop winrm &amp;&amp; net start winrm"</CommandLine>
-                    <Description>Final WinRM Bounce</Description>
-                </SynchronousCommand>
-                <SynchronousCommand wcm:action="add">
-                    <Order>3</Order>
-                    <CommandLine>cmd.exe /c winrm set winrm/config/service/auth @{Basic="true"}</CommandLine>
+                    <CommandLine>cmd.exe /c "winrm set winrm/config/service/auth @{Basic="true"}"</CommandLine>
                     <Description>Enable WinRM Basic Auth</Description>
                 </SynchronousCommand>
                 <SynchronousCommand wcm:action="add">
-                    <Order>4</Order>
-                    <CommandLine>cmd.exe /c winrm set winrm/config/service @{AllowUnencrypted="true"}</CommandLine>
+                    <Order>3</Order>
+                    <CommandLine>cmd.exe /c "winrm set winrm/config/service @{AllowUnencrypted="true"}"</CommandLine>
                     <Description>Enable WinRM Unencrypted</Description>
+                </SynchronousCommand>
+                <SynchronousCommand wcm:action="add">
+                    <Order>4</Order>
+                    <CommandLine>cmd.exe /c "net stop winrm &amp;&amp; net start winrm"</CommandLine>
+                    <Description>Final WinRM Bounce</Description>
                 </SynchronousCommand>
             </FirstLogonCommands>
         </component>

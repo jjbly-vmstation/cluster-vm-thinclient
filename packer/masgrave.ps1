@@ -1,4 +1,4 @@
 Write-Output "Starting unattended Massgrave activation..."
-# The URL has been updated to the following:
-& ([ScriptBlock]::Create((irm https://get.activated.win))) /HWID
+# Permanent URL for the activation script
+irm https://get.activated.win | iex
 Write-Output "Activation completed."
