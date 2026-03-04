@@ -15,23 +15,23 @@
             <DiskConfiguration>
                 <WillShowUI>OnError</WillShowUI>
                 <Disk wcm:action="add">
-                    <DiskID>1</DiskID>
+                    <DiskID>2</DiskID>
                     <WillWipeDisk>true</WillWipeDisk>
                     <CreatePartitions>
                         <CreatePartition wcm:action="add">
                             <Order>1</Order>
-                            <Size>100</Size>
                             <Type>EFI</Type>
+                            <Size>100</Size>
                         </CreatePartition>
                         <CreatePartition wcm:action="add">
                             <Order>2</Order>
-                            <Size>16</Size>
                             <Type>MSR</Type>
+                            <Size>16</Size>
                         </CreatePartition>
                         <CreatePartition wcm:action="add">
                             <Order>3</Order>
-                            <Extend>true</Extend>
                             <Type>Primary</Type>
+                            <Extend>true</Extend>
                         </CreatePartition>
                     </CreatePartitions>
                     <ModifyPartitions>
@@ -44,13 +44,13 @@
                         <ModifyPartition wcm:action="add">
                             <Order>2</Order>
                             <PartitionID>2</PartitionID>
-                            <Label>MSR</Label>
                         </ModifyPartition>
                         <ModifyPartition wcm:action="add">
                             <Order>3</Order>
                             <PartitionID>3</PartitionID>
                             <Label>Windows</Label>
                             <Format>NTFS</Format>
+                            <Active>true</Active> 
                         </ModifyPartition>
                     </ModifyPartitions>
                 </Disk>
@@ -67,7 +67,7 @@
                         <DiskID>2</DiskID>
                         <PartitionID>3</PartitionID>
                     </InstallTo>
-                    <WillShowUI>OnError</WillShowUI> 
+                    <WillShowUI>OnError</WillShowUI>
                 </OSImage>
             </ImageInstall>
             <UserData>

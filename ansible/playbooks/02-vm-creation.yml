@@ -22,6 +22,21 @@
         owner: vmadmin
         group: vmadmin
 
+    - name: Clean up previous build directory
+      file:
+        path: "/mnt/storage/vmware/win11-template"
+        state: absent
+      become: true
+
+    - name: Re-create clean build directory
+      file:
+        path: "/mnt/storage/vmware/win11-template"
+        state: directory
+        owner: vmadmin
+        group: vmadmin
+        mode: '0755'
+      become: true
+
     - name: Generate autounattend.xml from template
       template:
         src: "../../packer/autounattend.xml.j2"
