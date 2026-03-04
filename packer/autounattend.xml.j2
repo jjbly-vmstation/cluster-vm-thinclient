@@ -7,7 +7,6 @@
             </SetupUILanguage>
             <InputLocale>en-US</InputLocale>
             <SystemLocale>en-US</SystemLocale>
-            <UILanguage>en-US</UILanguage>
             <UILanguageFallback>en-US</UILanguageFallback>
             <UserLocale>en-US</UserLocale>
         </component>
@@ -15,7 +14,8 @@
             <DiskConfiguration>
                 <WillShowUI>OnError</WillShowUI>
                 <Disk wcm:action="add">
-                    <DiskID>0</DiskID> <WillWipeDisk>true</WillWipeDisk>
+                    <DiskID>0</DiskID>
+                    <WillWipeDisk>true</WillWipeDisk>
                     <CreatePartitions>
                         <CreatePartition wcm:action="add">
                             <Order>1</Order>
@@ -63,8 +63,9 @@
                     </InstallFrom>
                     <InstallTo>
                         <DiskID>0</DiskID>
-                        <PartitionID>3</PartitionID> </InstallTo>
-                    <WillShowUI>OnError</WillShowUI> 
+                        <PartitionID>3</PartitionID>
+                    </InstallTo>
+                    <WillShowUI>OnError</WillShowUI>
                 </OSImage>
             </ImageInstall>
             <UserData>
@@ -98,7 +99,7 @@
                 </RunSynchronousCommand>
             </RunSynchronous>
         </component>
-    </settings> 
+    </settings>
     <settings pass="specialize">
         <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
             <ComputerName>win11-template</ComputerName>
@@ -109,7 +110,6 @@
                 <RunSynchronousCommand wcm:action="add">
                     <Order>1</Order>
                     <Path>cmd.exe /c reg add HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System /v LocalAccountTokenFilterPolicy /t REG_DWORD /d 1 /f</Path>
-                    <Description>Disable UAC for WinRM</Description>
                 </RunSynchronousCommand>
                 <RunSynchronousCommand wcm:action="add">
                     <Order>2</Order>
@@ -150,6 +150,12 @@
                 <Username>admin</Username>
             </AutoLogon>
             <OOBE>
+                <HideEULAPage>true</HideEULAPage>
+                <HideLocalAccountScreen>true</HideLocalAccountScreen>
+                <HideOnlineAccountScreens>true</HideOnlineAccountScreens>
+                <HideWirelessSetupInOOBE>true</HideWirelessSetupInOOBE>
+                <NetworkLocation>Work</NetworkLocation>
+                <ProtectYourPC>3</ProtectYourPC>
                 <SkipMachineOOBE>true</SkipMachineOOBE>
                 <SkipUserOOBE>true</SkipUserOOBE>
             </OOBE>
