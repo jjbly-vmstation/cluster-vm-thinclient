@@ -59,7 +59,7 @@ source "vmware-iso" "windows_11" {
 
   # WinRM communicator – Windows will be configured to accept WinRM in autounattend
   communicator       = "winrm"
-  winrm_username     = "admin"
+  winrm_username     = "Administrator"
   winrm_password     = var.vm_password
   winrm_timeout      = "30m"
   winrm_use_ssl      = false

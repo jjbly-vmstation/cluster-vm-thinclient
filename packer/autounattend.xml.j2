@@ -134,16 +134,11 @@
     <settings pass="oobeSystem">
         <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
             <UserAccounts>
-                <LocalAccounts>
-                    <LocalAccount wcm:action="add">
-                        <Password>
-                            <Value>{{ vmws_pass }}</Value>
-                            <PlainText>true</PlainText>
-                        </Password>
-                        <Group>Administrators</Group>
-                        <Name>admin</Name>
-                    </LocalAccount>
-                </LocalAccounts>
+                <UserAccounts>
+                <AdministratorPassword>
+                    <Value>{{ vmws_pass }}</Value>
+                    <PlainText>true</PlainText>
+                </AdministratorPassword>
             </UserAccounts>
             <AutoLogon>
                 <Password>
@@ -152,7 +147,7 @@
                 </Password>
                 <Enabled>true</Enabled>
                 <LogonCount>1</LogonCount>
-                <Username>admin</Username>
+                <Username>Administrator</Username>
             </AutoLogon>
             <OOBE>
                 <HideEULAPage>true</HideEULAPage>
