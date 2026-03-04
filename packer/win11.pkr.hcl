@@ -47,8 +47,11 @@ source "vmware-iso" "windows_11" {
   vmx_data = {
     "firmware"                = "efi"
     "uefi.secureBoot.enabled" = "TRUE"
-    "managedVM.autoAddVTPM"   = "software" # Changed from "" to "software" (or delete line)
+    "managedVM.autoAddVTPM"   = "software"
     "bios.bootOrder"          = "hdd,cdrom"
+    # NEW: Enable USB Tablet for absolute mouse tracking in VNC
+    "usb.present"             = "TRUE"
+    "mouse.vusb.enable"       = "TRUE"
   }
   vmx_data_post = {
     "bios.bootOrder" = "hdd,cdrom"
@@ -70,8 +73,8 @@ source "vmware-iso" "windows_11" {
 build {
   sources = ["source.vmware-iso.windows_11"]
 
-  # Optional: provisioners to run Masgrave after WinRM is ready
+  # This runs the moment WinRM connects successfully
   provisioner "powershell" {
-    scripts = ["./masgrave.ps1"]
+    script = "./masgrave.ps1"
   }
 }
