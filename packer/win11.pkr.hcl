@@ -13,60 +13,65 @@ variable "vm_password" {
 }
 
 source "vmware-iso" "windows_11" {
-  iso_url            = "/home/vmadmin/iso/en-us_windows_11_business_editions_version_25h2_updated_feb_2026_x64_dvd_9271bf68.iso"
-  iso_checksum       = "none"
-  guest_os_type      = "windows11-64"
-  vm_name            = "win11-template"
-  output_directory   = "/mnt/storage/vmware/win11-template"
+  iso_url           = "/home/vmadmin/iso/en-us_windows_11_business_editions_version_25h2_updated_feb_2026_x64_dvd_9271bf68.iso"
+  iso_checksum      = "none"   # Use "sha256:..." for production
+  guest_os_type     = "windows11-64"
+  vm_name           = "win11-template"
+  output_directory  = "/mnt/storage/vmware/win11-template"
 
-  # Force Hardware Version 21 for NVMe/VTPM support on RHEL 10
-  version = "21"
+  # Boot order: wait 3s, then press space to boot from CD
+  boot_wait         = "3s"
+  boot_command = [
+    "<spacebar><wait><wait>"
+  ]
 
-  # Communicator Fix: Mandatory for Windows builds to avoid SSH errors
-  communicator       = "winrm"
-  winrm_username     = "admin"
-  winrm_password     = var.vm_password
-  winrm_timeout      = "2h"
-  winrm_use_ssl      = false
-  winrm_insecure     = true
+  vnc_bind_address  = "0.0.0.0"
+  vnc_port_min      = 5900
+  vnc_port_max      = 5900
+  vnc_disable_password = true   # No password required for VNC
+  
+  disk_type_id      = "0"
+  cpus              = 4
+  memory            = 12288
+  disk_size         = 100 * 1024   # 100 GB
+  disk_adapter_type = "nvme"
+  cdrom_adapter_type= "sata"
+  headless          = true        # Set false to see the console (debug)
 
-  shutdown_command   = "shutdown /s /t 10 /f /d p:4:1 /c \"Packer Shutdown\""
-
-  cpus               = 4
-  memory             = 12288
-  disk_size          = 102400
-  disk_adapter_type  = "nvme"
-  cdrom_adapter_type = "sata"
   network_adapter_type = "e1000e"
-  headless           = true
-
-  # VNC Configuration for Remmina Access
-  vnc_bind_address     = "0.0.0.0"
-  vnc_port_min         = 5900
-  vnc_port_max         = 5900
-  vnc_disable_password = true
-
-  # Spamming spacebar to catch the "Press any key to boot from CD" prompt
-  boot_wait          = "2s"
-  boot_command       = ["<spacebar><wait><enter><wait><spacebar><wait><enter><wait><spacebar>"]
-
   cd_files = ["./autounattend.xml"]
   cd_label = "AUTOMATION"
+  
+  
   
   vmx_data = {
     "firmware"                = "efi"
     "uefi.secureBoot.enabled" = "TRUE"
-    "managedVM.autoAddVTPM"   = "software"
-    "bios.bootOrder"          = "cdrom,hdd"
-    "mouse.vusb.type"         = "tablet"
-    "usb_xhci.present"        = "TRUE"
+    "managedVM.autoAddVTPM"   = "software" # Changed from "" to "software" (or delete line)
+    "bios.bootOrder"          = "hdd,cdrom"
   }
+  vmx_data_post = {
+    "bios.bootOrder" = "hdd,cdrom"
+  }
+
+  # WinRM communicator – Windows will be configured to accept WinRM in autounattend
+  communicator       = "winrm"
+  winrm_username     = "admin"
+  winrm_password     = var.vm_password
+  winrm_timeout      = "4h"
+  winrm_use_ssl      = false
+  winrm_insecure     = true
+
+  # Shutdown command will be executed via WinRM after provisioning
+  shutdown_command   = "shutdown /s /t 10 /f /d p:4:1 /c \"Packer Shutdown\""
+  shutdown_timeout   = "30m"
 }
 
 build {
   sources = ["source.vmware-iso.windows_11"]
 
+  # Optional: provisioners to run Masgrave after WinRM is ready
   provisioner "powershell" {
-    script = "./masgrave.ps1"
+    scripts = ["./masgrave.ps1"]
   }
 }
