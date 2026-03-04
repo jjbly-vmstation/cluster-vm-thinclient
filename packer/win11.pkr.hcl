@@ -77,4 +77,9 @@ build {
   provisioner "powershell" {
     script = "./masgrave.ps1"
   }
+  provisioner "windows-shell" {
+    inline = [
+      "c:\\windows\\system32\\sysprep\\sysprep.exe /generalize /mode:vm /oobe /shutdown"
+    ]
+  }
 }
