@@ -1,3 +1,4 @@
-Write-Output "Starting unattended Massgrave activation..."
-& ([ScriptBlock]::Create((irm https://massgrave.dev/get))) /HWID
-Write-Output "Activation completed."
+Write-Output "Starting unattended activation..."
+# The new permanent URL for the activation script
+irm https://get.activated.win | iex
+Write-Output "Activation process triggered."
