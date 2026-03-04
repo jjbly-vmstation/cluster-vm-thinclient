@@ -77,5 +77,4 @@ build {
   provisioner "powershell" {
     script = "./masgrave.ps1"
   }
-  
 }
