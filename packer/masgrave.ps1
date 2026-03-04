@@ -1,5 +1,5 @@
 # masgrave.ps1
-# Example: Invoke Massgrave HWID activation for Windows 11
-Write-Output "Starting Masgrave activation..."
-irm https://massgrave.dev/get | iex
+Write-Output "Starting unattended Massgrave activation..."
+# The /HWID flag bypasses the menu and automatically activates Windows
+iex "& { $(irm https://massgrave.dev/get) } /HWID"
 Write-Output "Activation completed."
