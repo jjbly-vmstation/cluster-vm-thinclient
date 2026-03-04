@@ -61,7 +61,7 @@ source "vmware-iso" "windows_11" {
   communicator       = "winrm"
   winrm_username     = "admin"
   winrm_password     = var.vm_password
-  winrm_timeout      = "4h"
+  winrm_timeout      = "30m"
   winrm_use_ssl      = false
   winrm_insecure     = true
 
