@@ -66,12 +66,21 @@
         group: vmadmin
         recurse: yes
 
+    - name: Pre-answer VMware "I copied it" prompt
+      lineinfile:
+        path: "{{ template_local_vmx }}"
+        regexp: '^uuid\.action\s*='
+        line: 'uuid.action = "create"'
+        state: present
+      become_user: vmadmin
+
     - name: Force VMware to register template (Power Cycle)
       shell: |
         /usr/bin/vmrun -T ws start "{{ template_local_vmx }}" nogui
         /usr/bin/vmrun -T ws stop "{{ template_local_vmx }}" hard
       become_user: vmadmin
-      ignore_errors: true
+      # ignore_errors is removed so we can properly catch if this fails
+
     - name: Restart vmrest API to refresh inventory cache
       shell: |
         pkill -9 vmrest || true
@@ -96,8 +105,23 @@
     - name: Extract Template VM ID dynamically
       set_fact:
         template_vm_id: "{{ item.id }}"
-      loop: "{{ api_response.json }}"
-      when: "'win11-template.vmx' in item.path"
+      loop: "{{ api_response.json | default([]) }}"
+      when: "item.path is defined and 'win11-template.vmx' in item.path"
+
+    - name: Fail safely if VM ID was not captured
+      fail:
+        msg: "Could not find the VM in the API response. API returned: {{ api_response.content }}"
+      when: template_vm_id is not defined
+
+    - name: Terraform Apply
+      shell: |
+        terraform init
+        terraform apply -auto-approve \
+          -var="vmws_pass={{ vmws_pass }}" \
+          -var="sourceid={{ template_vm_id }}"
+      args:
+        chdir: "{{ terraform_dir }}"
+      become_user: vmadmin
 
     - name: Terraform Apply
       shell: |
