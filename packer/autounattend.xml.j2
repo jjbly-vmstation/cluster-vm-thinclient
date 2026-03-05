@@ -172,7 +172,7 @@
                      service restart, so Packer always sees Basic + Unencrypted. -->
                 <SynchronousCommand wcm:action="add">
                     <Order>2</Order>
-                    <CommandLine>powershell -ExecutionPolicy Bypass -Command "Stop-Service WinRM -Force -ErrorAction SilentlyContinue; Set-Item WSMan:\localhost\Service\Auth\Basic $true; Set-Item WSMan:\localhost\Service\AllowUnencrypted $true; Set-Item WSMan:\localhost\Client\Auth\Basic $true; Set-Item WSMan:\localhost\Client\AllowUnencrypted $true; winrm quickconfig -q -force; Start-Service WinRM; netsh advfirewall firewall set rule group='Windows Remote Management' new enable=yes"</CommandLine>
+                    <CommandLine>powershell -ExecutionPolicy Bypass -Command "winrm quickconfig -q; Set-Item WSMan:\localhost\Service\Auth\Basic $true -Force; Set-Item WSMan:\localhost\Service\AllowUnencrypted $true -Force; Set-Item WSMan:\localhost\Client\Auth\Basic $true -Force; Set-Item WSMan:\localhost\Client\AllowUnencrypted $true -Force; Restart-Service WinRM -Force; netsh advfirewall firewall set rule group='Windows Remote Management' new enable=yes"</CommandLine>
                     <Description>Configure WinRM with Basic auth and unencrypted HTTP for Packer</Description>
                 </SynchronousCommand>
                 <!-- Step 3: Verify and log WinRM state to C:\winrm-setup.log for debugging -->
