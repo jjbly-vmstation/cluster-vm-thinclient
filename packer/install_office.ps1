@@ -1,34 +1,23 @@
 $ErrorActionPreference = "Stop"
 
-Write-Output "Scanning for the AUTOMATION drive (looking for nested Office cache)..."
+Write-Output "Searching for the AUTOMATION drive..."
 
-# Look for the drive that contains our specific nested Office folder
-$targetDrive = Get-PSDrive -PSProvider FileSystem | 
-    Where-Object { Test-Path "$($_.Name):\packer_cache\office\configuration-Office365-x64.xml" } | 
-    Select-Object -First 1
+# We look for the unique XML filename that only exists in your office cache
+$targetFile = Get-ChildItem -Path "?:\packer_cache\office\configuration-Office365-x64.xml" -File -ErrorAction SilentlyContinue | Select-Object -First 1
 
-if (-not $targetDrive) {
-    throw "Could not find configuration-Office365-x64.xml in \packer_cache\office\ on any drive!"
+if (-not $targetFile) {
+    throw "Could not find the Office configuration file on any mounted drive (D-Z)."
 }
 
-$driveLetter = "$($targetDrive.Name):"
-# Define the exact nested paths based on your folder structure
-$officeBaseDir = "$driveLetter\packer_cache\office"
-$setupPath = "$officeBaseDir\setup.exe"
-$configPath = "$officeBaseDir\configuration-Office365-x64.xml"
+# Now we know exactly which drive and folder we are in
+$officeDir = $targetFile.DirectoryName
+$setupPath = Join-Path $officeDir "setup.exe"
+$configPath = $targetFile.FullName
 
-Write-Output "Correct Drive Found: $driveLetter"
-Write-Output "Targeting: $setupPath"
+Write-Output "Found Office Cache at: $officeDir"
 
-# Change directory to the office folder so the ODT can see the 'Office' data folder
-Set-Location -Path $officeBaseDir
+# Jump into that folder so setup.exe can see the 'Office' data folder
+Set-Location -Path $officeDir
 
 Write-Output "Starting Office Installation..."
-# We pass the absolute config path to avoid any ambiguity
-$process = Start-Process -FilePath $setupPath -ArgumentList "/configure `"$configPath`"" -Wait -PassThru
-
-if ($process.ExitCode -ne 0) {
-    throw "Office installation failed with Exit Code $($process.ExitCode)"
-}
-
-Write-Output "Office Installation Complete."
+Start-Process -FilePath $setupPath -ArgumentList "/configure `"$configPath`"" -Wait
