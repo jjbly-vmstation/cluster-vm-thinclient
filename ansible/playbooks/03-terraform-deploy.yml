@@ -18,6 +18,11 @@
     vm_dest_vmx: "{{ vm_dest_dir }}/win11-production.vmx"
 
   tasks:
+    - name: Cleanup digital graveyard (Packer artifacts)
+      shell: |
+        rm -rf /mnt/storage/vmware/packer*
+      ignore_errors: true
+
     - name: Install Terraform and dependencies
       dnf:
         name: 
@@ -74,25 +79,30 @@
         owner: vmadmin
         group: vmadmin
 
-    - name: Initialize or Clear VMware inventory database
+    - name: Forcefully write valid VMware inventory database
       copy:
         dest: "/home/vmadmin/.vmware/inventory.vmls"
         content: |
           .encoding = "UTF-8"
-          vmlist.index = "0"
+          vmlist.index = "1"
           vmlist.config.0 = "{{ template_local_vmx }}"
+          vmlist.config.0.name = "win11-template"
+          vmlist.config.0.id = "0"
         owner: vmadmin
         group: vmadmin
 
     - name: Force VMware to generate new UUIDs (Power Cycle)
       shell: |
+        /usr/bin/vmrun -T ws stop "{{ template_local_vmx }}" hard || true
         /usr/bin/vmrun -T ws start "{{ template_local_vmx }}" nogui
+        sleep 5
         /usr/bin/vmrun -T ws stop "{{ template_local_vmx }}" hard
       become_user: vmadmin
 
     - name: Restart vmrest API to refresh inventory cache
       shell: |
         pkill -9 vmrest || true
+        sleep 1
         nohup vmrest > /dev/null 2>&1 &
       become_user: vmadmin
 
