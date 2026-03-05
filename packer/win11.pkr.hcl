@@ -46,7 +46,7 @@ source "vmware-iso" "windows_11" {
   cd_files = [
     "./autounattend.xml",
     "./packer_cache/office/*"
-    ]
+  ]
   cd_label = "AUTOMATION"
   
   

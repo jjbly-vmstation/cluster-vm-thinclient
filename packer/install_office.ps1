@@ -2,29 +2,31 @@ $ErrorActionPreference = "Stop"
 
 Write-Output "Searching for the AUTOMATION drive..."
 
-# Search for the config file at the root of any drive (Packer flattens cd_files)
-$targetFile = Get-PSDrive -PSProvider FileSystem | ForEach-Object {
-    $path = "$($_.Name):\configuration-Office365-x64.xml"
-    if (Test-Path $path) { Get-Item $path }
-} | Select-Object -First 1
+# 1. Find the drive that has the ODT setup.exe
+$targetDrive = Get-PSDrive -PSProvider FileSystem | Where-Object { 
+    Test-Path "$($_.Name):\setup.exe" 
+} | Select-Object -ExpandProperty Name -First 1
 
-if (-not $targetFile) {
-    throw "Could not find configuration-Office365-x64.xml on any drive root. Check if cd_files in HCL is correct."
+if (-not $targetDrive) {
+    throw "Could not find setup.exe on any drive. Check your Packer cd_files config."
 }
 
-$driveRoot = $targetFile.DirectoryName
-$setupPath = Join-Path $driveRoot "setup.exe"
-$configPath = $targetFile.FullName
+# 2. Set variables to the ODT-specific filename
+$setupPath = "$($targetDrive):\setup.exe"
+$configPath = "$($targetDrive):\configuration-Office365-x64.xml"
 
-# IMPORTANT: Move to the drive root so setup.exe finds the 'Office' folder locally
-Set-Location -Path $driveRoot
+# 3. CRITICAL: Change location to the drive root so setup.exe sees the 'Office' folder
+Set-Location -Path "$($targetDrive):\"
 
-Write-Output "Starting Local Office/Visio Installation from $driveRoot..."
-# The /configure flag combined with SourcePath="." in XML ensures it stays offline
+Write-Output "Starting Offline Installation from drive $($targetDrive): using configuration-Office365-x64.xml..."
+
+# 4. Run the install
 $process = Start-Process -FilePath $setupPath -ArgumentList "/configure `"$configPath`"" -Wait -PassThru
 
 if ($process.ExitCode -ne 0) {
+    # If it fails, dump the last bit of the log so we see the Microsoft error
+    Get-Content "C:\Windows\Temp\*-*.log" -Tail 20 | Write-Output
     throw "Office installation failed with Exit Code $($process.ExitCode)"
 }
 
-Write-Output "Office Installation Complete using local source files."
+Write-Output "Office and Visio installation complete."
