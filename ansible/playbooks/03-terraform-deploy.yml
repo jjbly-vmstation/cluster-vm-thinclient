@@ -23,7 +23,7 @@
         rm -rf /mnt/storage/vmware/packer*
         rm -rf "{{ template_local_dir }}"
         rm -rf "{{ vm_dest_dir }}"
-      ignore_errors: true
+      ignore_errors: yes
 
     - name: 2. Sync Terraform codebase
       ansible.posix.synchronize:
@@ -64,7 +64,7 @@
         - '(?i)^vmci0\.id.*'
         - '(?i)^ethernet0\.generatedAddress.*'
 
-    - name: 7. Set auto-accept and creation flags uniquely (CRITICAL FIX)
+    - name: 7. Set auto-accept and creation flags uniquely
       lineinfile:
         path: "{{ template_local_vmx }}"
         regexp: "{{ item.regexp }}"
@@ -86,7 +86,7 @@
 
     - name: 10. Kill any hanging VMware processes
       shell: "pkill -9 vmrest || true; pkill -9 vmrun || true"
-      ignore_errors: true
+      ignore_errors: yes
 
     - name: 11. Force VMware to generate UUIDs via NATIVE login shell
       shell: |
@@ -96,17 +96,36 @@
       args:
         executable: /bin/bash
 
-    - name: 12. Start API service via NATIVE login shell
+    - name: 12. Ensure VMware user directory exists
+      file:
+        path: "/home/vmadmin/.vmware"
+        state: directory
+        owner: vmadmin
+        group: vmadmin
+        mode: '0700'
+
+    - name: 13. Manually force VM into Workstation inventory database
+      copy:
+        dest: "/home/vmadmin/.vmware/inventory.vmls"
+        content: |
+          .encoding = "UTF-8"
+          vmlist.config.0 = "{{ template_local_vmx }}"
+          vmlist.index = "1"
+        owner: vmadmin
+        group: vmadmin
+        mode: '0600'
+
+    - name: 14. Start API service via NATIVE login shell
       shell: "su - vmadmin -c 'nohup /usr/bin/vmrest > /home/vmadmin/vmrest.log 2>&1 &'"
       args:
         executable: /bin/bash
 
-    - name: 13. Wait for API to fully settle
+    - name: 15. Wait for API to fully settle
       wait_for:
         port: 8697
         delay: 5
 
-    - name: 14. Query API for VM ID (With Retries)
+    - name: 16. Query API for VM ID (With Retries)
       uri:
         url: "http://127.0.0.1:8697/api/vms"
         method: GET
@@ -118,11 +137,11 @@
       delay: 5
       until: api_response.json | length > 0
 
-    - name: 15. Extract Template VM ID
+    - name: 17. Extract Template VM ID
       set_fact:
         template_vm_id: "{{ api_response.json[0].id }}"
 
-    - name: 16. Terraform Apply
+    - name: 18. Terraform Apply
       shell: |
         terraform init
         terraform apply -auto-approve \
@@ -132,7 +151,7 @@
         chdir: "{{ terraform_dir }}"
       become_user: vmadmin
 
-    - name: 17. Configure 100% Uptime Service (Systemd)
+    - name: 19. Configure 100% Uptime Service (Systemd)
       copy:
         dest: /etc/systemd/system/win11-production.service
         content: |
@@ -152,14 +171,14 @@
           [Install]
           WantedBy=multi-user.target
 
-    - name: 18. Enable and Start VM
+    - name: 20. Enable and Start VM
       systemd:
         name: win11-production
         enabled: true
         state: started
         daemon_reload: true
 
-    - name: 19. Setup Automated Nightly Backups
+    - name: 21. Setup Automated Nightly Backups
       cron:
         name: "Nightly Windows 11 Backup"
         minute: "0"
