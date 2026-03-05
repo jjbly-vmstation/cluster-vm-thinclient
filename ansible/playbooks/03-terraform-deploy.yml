@@ -35,20 +35,6 @@
         group: vmadmin
         recurse: yes
 
-    - name: Overwrite variables.tf with valid syntax
-      copy:
-        dest: "{{ terraform_dir }}/variables.tf"
-        owner: vmadmin
-        group: vmadmin
-        content: |
-          variable "vmws_url" { default = "http://127.0.0.1:8697/api" }
-          variable "vmws_user" { default = "vmadmin" }
-          variable "vmws_pass" { type = string }
-          variable "vm_name" { type = string }
-          variable "sourceid" { type = string }
-          variable "dest_path" { type = string }
-
-    
     - name: Ensure deployment directory exists
       file:
         path: "{{ vm_dest_dir }}"
