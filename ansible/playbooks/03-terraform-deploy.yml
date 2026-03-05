@@ -23,7 +23,7 @@
         rm -rf /mnt/storage/vmware/packer*
         rm -rf "{{ template_local_dir }}"
         rm -rf "{{ vm_dest_dir }}"
-      ignore_errors: true
+      ignore_errors: yes
 
     - name: 2. Sync Terraform codebase
       ansible.posix.synchronize:
@@ -56,24 +56,27 @@
     - name: 6. Strip hardware identity to force VMware to generate new ones
       lineinfile:
         path: "{{ template_local_vmx }}"
-        regexp: "{{ item.regexp }}"
+        regexp: "{{ item }}"
         state: absent
       loop:
-        - { regexp: '^uuid\..*' }
-        - { regexp: '^vmci0\.id.*' }
-        - { regexp: '^ethernet0\.generatedAddress.*' }
+        - '(?i)^uuid\.bios.*'
+        - '(?i)^uuid\.location.*'
+        - '(?i)^vmci0\.id.*'
+        - '(?i)^ethernet0\.generatedAddress.*'
 
-    - name: 7. Set auto-accept flag (Without corrupting VMX syntax)
+    - name: 7. Set auto-accept and creation flags uniquely (CRITICAL FIX)
       lineinfile:
         path: "{{ template_local_vmx }}"
-        line: 'msg.autoanswer = "TRUE"'
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+      loop:
+        - { regexp: '(?i)^msg\.autoanswer\s*=', line: 'msg.autoanswer = "TRUE"' }
+        - { regexp: '(?i)^uuid\.action\s*=', line: 'uuid.action = "create"' }
 
-    - name: 8. Set creation flag (Without corrupting VMX syntax)
-      lineinfile:
-        path: "{{ template_local_vmx }}"
-        line: 'uuid.action = "create"'
+    - name: 8. Restore SELinux context for RHEL security compliance
+      shell: "restorecon -Rv {{ template_local_dir }} || true"
 
-    - name: 9. CRITICAL FIX - Fix ownership of edited template files
+    - name: 9. Fix ownership of edited template files
       file:
         path: "{{ template_local_dir }}"
         owner: vmadmin
@@ -83,7 +86,7 @@
 
     - name: 10. Kill any hanging VMware processes
       shell: "pkill -9 vmrest || true; pkill -9 vmrun || true"
-      ignore_errors: true
+      ignore_errors: yes
 
     - name: 11. Force VMware to generate UUIDs via NATIVE login shell
       shell: |
@@ -155,3 +158,11 @@
         enabled: true
         state: started
         daemon_reload: true
+
+    - name: 19. Setup Automated Nightly Backups
+      cron:
+        name: "Nightly Windows 11 Backup"
+        minute: "0"
+        hour: "2"
+        job: "/usr/bin/rsync -a --delete {{ vm_dest_dir }}/ /mnt/storage/backups/win11-production/"
+        user: vmadmin
