@@ -44,7 +44,7 @@ source "vmware-iso" "windows_11" {
 
   network_adapter_type = "e1000e"
   cd_files = [
-    "./autounattend.xml"
+    "./autounattend.xml",
     "./packer_cache/office"
     ]
   cd_label = "AUTOMATION"
