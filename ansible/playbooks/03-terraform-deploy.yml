@@ -18,17 +18,12 @@
     vm_dest_vmx: "{{ vm_dest_dir }}/win11-production.vmx"
 
   tasks:
-    - name: Cleanup digital graveyard (Packer artifacts)
+    - name: Cleanup previous failed attempts and artifacts
       shell: |
         rm -rf /mnt/storage/vmware/packer*
+        rm -rf "{{ template_local_dir }}"
+        rm -rf "{{ vm_dest_dir }}"
       ignore_errors: true
-
-    - name: Install Terraform and dependencies
-      dnf:
-        name: 
-          - dnf-plugins-core
-          - terraform
-        state: present
 
     - name: Sync Terraform codebase
       ansible.posix.synchronize:
@@ -37,56 +32,47 @@
         recursive: yes
         delete: yes
 
-    - name: Fix directory ownership for project root
-      file:
-        path: "{{ project_root }}"
-        owner: vmadmin
-        group: vmadmin
-        recurse: yes
-
     - name: Ensure local writable template directory exists
       file:
         path: "{{ template_local_dir }}"
         state: directory
         owner: vmadmin
         group: vmadmin
+        mode: '0755'
 
-    - name: Stage Packer template from read-only NFS to local storage
+    - name: Stage Packer template from read-only NFS
       ansible.posix.synchronize:
         src: "{{ template_nfs_dir }}/"
         dest: "{{ template_local_dir }}/"
       delegate_to: "{{ inventory_hostname }}"
 
-    - name: CRITICAL FIX - Purge stale VMware lock files from copied template
-      shell: |
-        rm -rf "{{ template_local_dir }}"/*.lck
-        rm -rf "{{ template_local_dir }}"/*.lock
-      ignore_errors: true
-
-    - name: Ensure vmadmin owns the copied template files
-      file:
-        path: "{{ template_local_dir }}"
-        owner: vmadmin
-        group: vmadmin
-        recurse: yes
-
-    - name: Pre-answer VMware "I copied it" prompt
+    - name: Strip hardware identity and pre-answer move prompt
       lineinfile:
         path: "{{ template_local_vmx }}"
-        regexp: '^uuid\.action\s*='
-        line: 'uuid.action = "create"'
-        state: present
+        regexp: "{{ item.regexp }}"
+        state: absent
+      loop:
+        - { regexp: '^uuid\..*' }
+        - { regexp: '^vmci0\.id.*' }
+        - { regexp: '^ethernet0\.generatedAddress.*' }
+
+    - name: Set auto-accept and creation flags
+      blockinfile:
+        path: "{{ template_local_vmx }}"
+        block: |
+          uuid.action = "create"
+          msg.autoanswer = "TRUE"
       become_user: vmadmin
 
-    - name: Ensure VMware user directory exists
+    - name: Ensure VMware configuration directory exists
       file:
         path: "/home/vmadmin/.vmware"
         state: directory
         owner: vmadmin
         group: vmadmin
-        mode: '0755'
+        mode: '0700'
 
-    - name: Forcefully write valid VMware inventory database
+    - name: Manually force VM into inventory database
       copy:
         dest: "/home/vmadmin/.vmware/inventory.vmls"
         content: |
@@ -95,49 +81,38 @@
           vmlist.index = "1"
         owner: vmadmin
         group: vmadmin
-        mode: '0644'
+        mode: '0600'
 
-    - name: Stop all running VMware headless processes to release database locks
-      shell: |
-        pkill -9 vmrest || true
-        pkill -9 vmrun || true
-      become_user: vmadmin
+    - name: Kill any hanging VMware processes
+      shell: "pkill -9 vmrest || true; pkill -9 vmrun || true"
+      ignore_errors: true
 
-    - name: Restart vmrest API with strict environment isolation
-      shell: |
-        export HOME=/home/vmadmin
-        export USER=vmadmin
-        nohup /usr/bin/vmrest > /home/vmadmin/vmrest.log 2>&1 &
+    - name: Start API service with explicit home directory
+      shell: "nohup /usr/bin/vmrest > /home/vmadmin/vmrest.log 2>&1 &"
       become_user: vmadmin
       environment:
         HOME: "/home/vmadmin"
-        USER: "vmadmin"
 
-    - name: Wait for API to fully parse inventory
+    - name: Wait for API to settle
       wait_for:
         port: 8697
-        delay: 4
+        delay: 5
 
-    - name: Query VMware REST API for VM Inventory
+    - name: Query API for VM ID
       uri:
         url: "http://127.0.0.1:8697/api/vms"
         method: GET
         url_username: vmadmin
         url_password: "{{ vmws_pass }}"
         force_basic_auth: yes
-        return_content: yes
       register: api_response
+      retries: 3
+      delay: 5
+      until: api_response.json | length > 0
 
-    - name: Extract Template VM ID dynamically
+    - name: Extract Template VM ID
       set_fact:
-        template_vm_id: "{{ item.id }}"
-      loop: "{{ api_response.json | default([]) }}"
-      when: "item.path is defined and 'win11-template.vmx' in item.path"
-
-    - name: Fail safely if VM ID was not captured
-      fail:
-        msg: "Could not find the VM in the API response. API returned: {{ api_response.content }}"
-      when: template_vm_id is not defined
+        template_vm_id: "{{ api_response.json[0].id }}"
 
     - name: Terraform Apply
       shell: |
@@ -149,37 +124,7 @@
         chdir: "{{ terraform_dir }}"
       become_user: vmadmin
 
-    - name: Configure 100% Uptime Service (Systemd)
-      copy:
-        dest: /etc/systemd/system/win11-production.service
-        content: |
-          [Unit]
-          Description=Windows 11 Production VM
-          After=network.target vmware.service
-          Requires=vmware.service
-
-          [Service]
-          Type=forking
-          ExecStart=/usr/bin/vmrun -T ws start "{{ vm_dest_vmx }}" nogui
-          ExecStop=/usr/bin/vmrun -T ws stop "{{ vm_dest_vmx }}" soft
-          Restart=always
-          RestartSec=30
-          User=vmadmin
-
-          [Install]
-          WantedBy=multi-user.target
-
-    - name: Enable and Start VM
-      systemd:
-        name: win11-production
-        enabled: true
-        state: started
-        daemon_reload: true
-
-    - name: Setup Automated Nightly Backups
-      cron:
-        name: "Nightly Windows 11 Backup"
-        minute: "0"
-        hour: "2"
-        job: "/usr/bin/rsync -a --delete {{ vm_dest_dir }}/ /mnt/storage/backups/win11-production/"
-        user: vmadmin
+    - name: Create Systemd service for production VM
+      template:
+        src: "../../templates/vm-service.j2" # Or use a 'copy' with 'content' as before
+        dest: "/etc/systemd/system/win11-production.service"
