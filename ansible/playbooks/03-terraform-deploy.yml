@@ -53,14 +53,7 @@
         dest: "{{ template_local_dir }}/"
       delegate_to: "{{ inventory_hostname }}"
 
-    - name: 6. Fix ownership of copied template files immediately
-      file:
-        path: "{{ template_local_dir }}"
-        owner: vmadmin
-        group: vmadmin
-        recurse: yes
-
-    - name: 7. Strip hardware identity to force VMware to generate new ones
+    - name: 6. Strip hardware identity to force VMware to generate new ones
       lineinfile:
         path: "{{ template_local_vmx }}"
         regexp: "{{ item.regexp }}"
@@ -70,18 +63,29 @@
         - { regexp: '^vmci0\.id.*' }
         - { regexp: '^ethernet0\.generatedAddress.*' }
 
-    - name: 8. Set auto-accept and creation flags
-      blockinfile:
+    - name: 7. Set auto-accept flag (Without corrupting VMX syntax)
+      lineinfile:
         path: "{{ template_local_vmx }}"
-        block: |
-          uuid.action = "create"
-          msg.autoanswer = "TRUE"
+        line: 'msg.autoanswer = "TRUE"'
 
-    - name: 9. Kill any hanging VMware processes
+    - name: 8. Set creation flag (Without corrupting VMX syntax)
+      lineinfile:
+        path: "{{ template_local_vmx }}"
+        line: 'uuid.action = "create"'
+
+    - name: 9. CRITICAL FIX - Fix ownership of edited template files
+      file:
+        path: "{{ template_local_dir }}"
+        owner: vmadmin
+        group: vmadmin
+        recurse: yes
+        mode: '0755'
+
+    - name: 10. Kill any hanging VMware processes
       shell: "pkill -9 vmrest || true; pkill -9 vmrun || true"
       ignore_errors: true
 
-    - name: 10. Force VMware to generate UUIDs via NATIVE login shell
+    - name: 11. Force VMware to generate UUIDs via NATIVE login shell
       shell: |
         su - vmadmin -c '/usr/bin/vmrun -T ws start "{{ template_local_vmx }}" nogui'
         sleep 10
@@ -89,17 +93,17 @@
       args:
         executable: /bin/bash
 
-    - name: 11. Start API service via NATIVE login shell
+    - name: 12. Start API service via NATIVE login shell
       shell: "su - vmadmin -c 'nohup /usr/bin/vmrest > /home/vmadmin/vmrest.log 2>&1 &'"
       args:
         executable: /bin/bash
 
-    - name: 12. Wait for API to fully settle
+    - name: 13. Wait for API to fully settle
       wait_for:
         port: 8697
         delay: 5
 
-    - name: 13. Query API for VM ID (With Retries)
+    - name: 14. Query API for VM ID (With Retries)
       uri:
         url: "http://127.0.0.1:8697/api/vms"
         method: GET
@@ -111,11 +115,11 @@
       delay: 5
       until: api_response.json | length > 0
 
-    - name: 14. Extract Template VM ID
+    - name: 15. Extract Template VM ID
       set_fact:
         template_vm_id: "{{ api_response.json[0].id }}"
 
-    - name: 15. Terraform Apply
+    - name: 16. Terraform Apply
       shell: |
         terraform init
         terraform apply -auto-approve \
@@ -125,7 +129,7 @@
         chdir: "{{ terraform_dir }}"
       become_user: vmadmin
 
-    - name: 16. Configure 100% Uptime Service (Systemd)
+    - name: 17. Configure 100% Uptime Service (Systemd)
       copy:
         dest: /etc/systemd/system/win11-production.service
         content: |
@@ -145,7 +149,7 @@
           [Install]
           WantedBy=multi-user.target
 
-    - name: 17. Enable and Start VM
+    - name: 18. Enable and Start VM
       systemd:
         name: win11-production
         enabled: true
