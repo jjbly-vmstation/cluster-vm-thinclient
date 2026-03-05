@@ -46,6 +46,13 @@
         dest: "{{ template_local_dir }}/"
       delegate_to: "{{ inventory_hostname }}"
 
+    - name: Fix ownership of copied template files immediately
+      file:
+        path: "{{ template_local_dir }}"
+        owner: vmadmin
+        group: vmadmin
+        recurse: yes
+
     - name: Strip hardware identity and pre-answer move prompt
       lineinfile:
         path: "{{ template_local_vmx }}"
@@ -55,7 +62,16 @@
         - { regexp: '^uuid\..*' }
         - { regexp: '^vmci0\.id.*' }
         - { regexp: '^ethernet0\.generatedAddress.*' }
+      # Runs as root to bypass cross-device tmp issues
 
+    - name: Set auto-accept and creation flags
+      blockinfile:
+        path: "{{ template_local_vmx }}"
+        block: |
+          uuid.action = "create"
+          msg.autoanswer = "TRUE"
+      # Removed become_user: vmadmin here. Runs as root.
+    
     - name: Set auto-accept and creation flags
       blockinfile:
         path: "{{ template_local_vmx }}"
