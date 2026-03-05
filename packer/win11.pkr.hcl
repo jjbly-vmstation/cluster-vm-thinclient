@@ -93,10 +93,4 @@ build {
     script = "./masgrave.ps1"
   }
 
-  # 4. Final Sysprep and Shutdown
-  provisioner "windows-shell" {
-    inline = [
-      "c:\\windows\\system32\\sysprep\\sysprep.exe /generalize /mode:vm /oobe /shutdown"
-    ]
-  }
 }
