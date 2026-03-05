@@ -48,34 +48,7 @@
           variable "sourceid" { type = string }
           variable "dest_path" { type = string }
 
-    - name: Overwrite main.tf with dynamic pathing
-      copy:
-        dest: "{{ terraform_dir }}/main.tf"
-        owner: vmadmin
-        group: vmadmin
-        content: |
-          terraform {
-            required_providers {
-              vmworkstation = {
-                source  = "elsudano/vmworkstation"
-                version = "2.0.1"
-              }
-            }
-          }
-          provider "vmworkstation" {
-            endpoint = var.vmws_url
-            username = var.vmws_user
-            password = var.vmws_pass
-          }
-          resource "vmworkstation_virtual_machine" "windows_vm" {
-            denomination = var.vm_name
-            description  = "Production - Office/Visio - Activated"
-            processors   = 4
-            memory       = 12288
-            sourceid     = var.sourceid
-            path         = var.dest_path
-          }
-
+    
     - name: Ensure deployment directory exists
       file:
         path: "{{ vm_dest_dir }}"
@@ -87,10 +60,7 @@
       shell: |
         terraform init -upgrade
         terraform apply -auto-approve \
-          -var="vmws_pass={{ vmws_pass }}" \
-          -var="sourceid={{ template_path }}" \
-          -var="dest_path={{ vm_dest_vmx }}" \
-          -var="vm_name=win11-production"
+          -var="vmws_pass={{ vmws_pass }}"
       args:
         chdir: "{{ terraform_dir }}"
       become_user: vmadmin

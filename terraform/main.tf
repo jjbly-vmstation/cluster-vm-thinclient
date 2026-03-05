@@ -11,6 +11,7 @@ provider "vmworkstation" {
   endpoint = var.vmws_url
   username = var.vmws_user
   password = var.vmws_pass
+  debug    = true
 }
 
 resource "vmworkstation_virtual_machine" "windows_vm" {
