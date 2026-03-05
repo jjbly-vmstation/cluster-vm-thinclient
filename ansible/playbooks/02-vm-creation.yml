@@ -54,6 +54,8 @@
       loop:
         - "../../packer/win11.pkr.hcl"
         - "../../packer/masgrave.ps1"
+        - "../../packer/office_config.xml"
+        - "../../packer/install_office.ps1"
 
     - name: Verify ISO exists
       stat:
