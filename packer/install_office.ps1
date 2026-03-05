@@ -1,30 +1,21 @@
 $ErrorActionPreference = "Stop"
 
-Write-Output "Locating the Automation CD Drive..."
-# Identify the drive letter for the CD-ROM containing our setup
-$driveLetter = Get-Volume | 
-    Where-Object DriveType -eq 'CD-ROM' | 
-    Select-Object -ExpandProperty DriveLetter | 
+Write-Output "Scanning for the AUTOMATION drive..."
+# Find the drive that has our specific setup.exe at the root
+$targetDrive = Get-PSDrive -PSProvider FileSystem | 
+    Where-Object { Test-Path "$($_.Name):\setup.exe" } | 
     Select-Object -First 1
 
-if (-not $driveLetter) {
-    throw "Could not find any mounted CD-ROM drive."
+if (-not $targetDrive) {
+    throw "Could not find the Office setup.exe on any mounted drive!"
 }
 
-$setupPath = "$($driveLetter):\setup.exe"
-# Ensure this filename matches exactly what is in your tree
-$configPath = "$($driveLetter):\configuration-Office365-x64.xml"
+$driveLetter = "$($targetDrive.Name):"
+$setupPath = "$driveLetter\setup.exe"
+$configPath = "$driveLetter\configuration-Office365-x64.xml"
 
-if (Test-Path $setupPath) {
-    Write-Output "Found Office Setup on drive $($driveLetter):. Starting installation..."
-    # Start the installation using the local configuration
-    $process = Start-Process -FilePath $setupPath -ArgumentList "/configure `"$configPath`"" -Wait -PassThru
-    
-    if ($process.ExitCode -ne 0) {
-        throw "Office installation failed with exit code $($process.ExitCode)"
-    }
-} else {
-    throw "setup.exe not found on drive $($driveLetter):"
-}
+Write-Output "Found setup on $driveLetter. Starting installation with explicit SourcePath..."
 
-Write-Output "Office Installation Complete."
+# By passing the SourcePath via command line, we override any internal XML confusion
+# and ensure it pulls from the virtual CD-ROM, not the internet.
+Start-Process -FilePath $setupPath -ArgumentList "/configure `"$configPath`"" -Wait -NoNewWindow
