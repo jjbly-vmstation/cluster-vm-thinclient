@@ -21,7 +21,7 @@
     - name: Cleanup digital graveyard (Packer artifacts)
       shell: |
         rm -rf /mnt/storage/vmware/packer*
-      ignore_errors: yes
+      ignore_errors: true
 
     - name: Install Terraform and dependencies
       dnf:
@@ -61,7 +61,7 @@
       shell: |
         rm -rf "{{ template_local_dir }}"/*.lck
         rm -rf "{{ template_local_dir }}"/*.lock
-      ignore_errors: yes
+      ignore_errors: true
 
     - name: Ensure vmadmin owns the copied template files
       file:
