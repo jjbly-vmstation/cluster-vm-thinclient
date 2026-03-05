@@ -44,7 +44,7 @@
 
     - name: Terraform Apply
       shell: |
-        terraform init -upgrade
+        terraform init
         terraform apply -auto-approve \
           -var="vmws_pass={{ vmws_pass }}"
       args:
