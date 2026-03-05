@@ -7,11 +7,15 @@
   vars:
     project_root: "/home/vmadmin/vmstation-org/cluster-vm-thinclient"
     terraform_dir: "{{ project_root }}/terraform"
-    # NFS Read-only source
-    template_path: "/mnt/media/iso/win11e/win11-template.vmx"
-    # Local production destination
+    
+    # Template Paths
+    template_nfs_dir: "/mnt/media/iso/win11e"
+    template_local_dir: "/mnt/storage/vmware/win11-template"
+    template_local_vmx: "{{ template_local_dir }}/win11-template.vmx"
+    
+    # Production Paths
     vm_dest_dir: "/mnt/storage/vmware/win11-production"
-    vm_dest_vmx: "/mnt/storage/vmware/win11-production/win11-production.vmx"
+    vm_dest_vmx: "{{ vm_dest_dir }}/win11-production.vmx"
 
   tasks:
     - name: Install Terraform and dependencies
@@ -42,11 +46,65 @@
         owner: vmadmin
         group: vmadmin
 
+    - name: Ensure local writable template directory exists
+      file:
+        path: "{{ template_local_dir }}"
+        state: directory
+        owner: vmadmin
+        group: vmadmin
+
+    - name: Stage Packer template from read-only NFS to local storage
+      ansible.posix.synchronize:
+        src: "{{ template_nfs_dir }}/"
+        dest: "{{ template_local_dir }}/"
+      delegate_to: "{{ inventory_hostname }}"
+
+    - name: Ensure vmadmin owns the copied template files
+      file:
+        path: "{{ template_local_dir }}"
+        owner: vmadmin
+        group: vmadmin
+        recurse: yes
+
+    - name: Force VMware to register template (Power Cycle)
+      shell: |
+        /usr/bin/vmrun -T ws start "{{ template_local_vmx }}" nogui
+        /usr/bin/vmrun -T ws stop "{{ template_local_vmx }}" hard
+      become_user: vmadmin
+      ignore_errors: true
+    - name: Restart vmrest API to refresh inventory cache
+      shell: |
+        pkill -9 vmrest || true
+        nohup vmrest > /dev/null 2>&1 &
+      become_user: vmadmin
+
+    - name: Wait for API to come online
+      wait_for:
+        port: 8697
+        delay: 2
+
+    - name: Query VMware REST API for VM Inventory
+      uri:
+        url: "http://127.0.0.1:8697/api/vms"
+        method: GET
+        url_username: vmadmin
+        url_password: "{{ vmws_pass }}"
+        force_basic_auth: yes
+        return_content: yes
+      register: api_response
+
+    - name: Extract Template VM ID dynamically
+      set_fact:
+        template_vm_id: "{{ item.id }}"
+      loop: "{{ api_response.json }}"
+      when: "'win11-template.vmx' in item.path"
+
     - name: Terraform Apply
       shell: |
         terraform init
         terraform apply -auto-approve \
-          -var="vmws_pass={{ vmws_pass }}"
+          -var="vmws_pass={{ vmws_pass }}" \
+          -var="sourceid={{ template_vm_id }}"
       args:
         chdir: "{{ terraform_dir }}"
       become_user: vmadmin
