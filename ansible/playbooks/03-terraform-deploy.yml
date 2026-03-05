@@ -15,12 +15,11 @@
 
   tasks:
     - name: Install Terraform and dependencies
-      shell: |
-        dnf install -y dnf-plugins-core
-        dnf config-manager --add-repo https://rpm.releases.hashicorp.com/RHEL/hashicorp.repo
-        dnf install -y terraform
-      args:
-        creates: /usr/bin/terraform
+      dnf:
+        name: 
+          - dnf-plugins-core
+          - terraform
+        state: present
 
     - name: Sync Terraform codebase
       ansible.posix.synchronize:
@@ -29,19 +28,53 @@
         recursive: yes
         delete: yes
 
-    - name: Fix directory ownership (CRITICAL FIX)
+    - name: Fix directory ownership
       file:
         path: "{{ project_root }}"
         owner: vmadmin
         group: vmadmin
         recurse: yes
 
-    - name: Fix duplicate variable declaration in variables.tf
-      lineinfile:
-        path: "{{ terraform_dir }}/variables.tf"
-        regexp: '^variable "sourceid"'
-        state: absent
-        firstmatch: false
+    - name: Overwrite variables.tf with valid syntax
+      copy:
+        dest: "{{ terraform_dir }}/variables.tf"
+        owner: vmadmin
+        group: vmadmin
+        content: |
+          variable "vmws_url" { default = "http://127.0.0.1:8697/api" }
+          variable "vmws_user" { default = "vmadmin" }
+          variable "vmws_pass" { type = string }
+          variable "vm_name" { type = string }
+          variable "sourceid" { type = string }
+          variable "dest_path" { type = string }
+
+    - name: Overwrite main.tf with dynamic pathing
+      copy:
+        dest: "{{ terraform_dir }}/main.tf"
+        owner: vmadmin
+        group: vmadmin
+        content: |
+          terraform {
+            required_providers {
+              vmworkstation = {
+                source  = "elsudano/vmworkstation"
+                version = "2.0.1"
+              }
+            }
+          }
+          provider "vmworkstation" {
+            endpoint = var.vmws_url
+            username = var.vmws_user
+            password = var.vmws_pass
+          }
+          resource "vmworkstation_virtual_machine" "windows_vm" {
+            denomination = var.vm_name
+            description  = "Production - Office/Visio - Activated"
+            processors   = 4
+            memory       = 12288
+            sourceid     = var.sourceid
+            path         = var.dest_path
+          }
 
     - name: Ensure deployment directory exists
       file:
@@ -62,7 +95,7 @@
         chdir: "{{ terraform_dir }}"
       become_user: vmadmin
 
-    - name: Configure 100% Uptime Service
+    - name: Configure 100% Uptime Service (Systemd)
       copy:
         dest: /etc/systemd/system/win11-production.service
         content: |
@@ -89,7 +122,7 @@
         state: started
         daemon_reload: true
 
-    - name: Setup Automated Backups
+    - name: Setup Automated Nightly Backups
       cron:
         name: "Nightly Win11 Backup"
         minute: "0"
