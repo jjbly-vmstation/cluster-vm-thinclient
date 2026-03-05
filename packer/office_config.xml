@@ -1,13 +1,28 @@
-<Configuration>
-  <Add OfficeClientEdition="64" Channel="Current">
-    <Product ID="O365ProPlusRetail">
-      <Language ID="en-us" />
-    </Product>
-  </Add>
-  <Updates Enabled="FALSE" />
-  <Display Level="None" AcceptEULA="TRUE" />
-  <Logging Level="Standard" Path="C:\Windows\Temp\" />
-  <Property Name="SharedComputerLicensing" Value="0" />
-  <Property Name="FORCEAPPSHUTDOWN" Value="TRUE" />
-  <Property Name="DeviceBasedLicensing" Value="0" />
-</Configuration>
+$ErrorActionPreference = "Stop"
+
+# FORCE DRIVE E: (Automation ISO)
+$driveRoot = "E:\"
+$setupPath = "E:\setup.exe"
+$configPath = "E:\configuration-Office365-x64.xml"
+
+Write-Output "FORCING Office installation from drive E:..."
+
+if (-not (Test-Path $setupPath)) {
+    throw "FATAL ERROR: Could not find setup.exe on E:. Verify E: is the correct drive letter in the VM console."
+}
+
+# Change location so the installer sees the 'Office' data folder on the same drive
+Set-Location -Path $driveRoot
+
+# Execute the deployment tool
+$process = Start-Process -FilePath $setupPath -ArgumentList "/configure `"$configPath`"" -Wait -NoNewWindow -PassThru
+
+if ($process.ExitCode -ne 0) {
+    Write-Output "Office installation failed with Exit Code $($process.ExitCode)"
+    if (Test-Path "C:\Windows\Temp\*-*.log") {
+        Get-Content "C:\Windows\Temp\*-*.log" -Tail 20 | Write-Output
+    }
+    throw "Installation failed."
+}
+
+Write-Output "Office and Visio installation complete."

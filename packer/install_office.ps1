@@ -1,32 +1,32 @@
 $ErrorActionPreference = "Stop"
 
-Write-Output "Searching for the AUTOMATION drive..."
+# HARDCODED PATHS TO DRIVE E:
+$driveRoot = "E:\"
+$setupPath = "E:\setup.exe"
+$configPath = "E:\configuration-Office365-x64.xml"
 
-# 1. Find the drive that has the ODT setup.exe
-$targetDrive = Get-PSDrive -PSProvider FileSystem | Where-Object { 
-    Test-Path "$($_.Name):\setup.exe" 
-} | Select-Object -ExpandProperty Name -First 1
+Write-Output "FORCING Office installation from drive E:..."
 
-if (-not $targetDrive) {
-    throw "Could not find setup.exe on any drive. Check your Packer cd_files config."
+# Pre-execution check
+if (-not (Test-Path $setupPath)) {
+    throw "FATAL: setup.exe not found on E:. Verify drive mapping in VMware console."
 }
 
-# 2. Set variables to the ODT-specific filename
-$setupPath = "$($targetDrive):\setup.exe"
-$configPath = "$($targetDrive):\configuration-Office365-x64.xml"
+# Change location so setup.exe sees the 'Office' data folder locally
+Set-Location -Path $driveRoot
 
-# 3. CRITICAL: Change location to the drive root so setup.exe sees the 'Office' folder
-Set-Location -Path "$($targetDrive):\"
+Write-Output "Executing: $setupPath /configure $configPath"
 
-Write-Output "Starting Offline Installation from drive $($targetDrive): using configuration-Office365-x64.xml..."
-
-# 4. Run the install
-$process = Start-Process -FilePath $setupPath -ArgumentList "/configure `"$configPath`"" -Wait -PassThru
+# Start the installation
+$process = Start-Process -FilePath $setupPath -ArgumentList "/configure `"$configPath`"" -Wait -NoNewWindow -PassThru
 
 if ($process.ExitCode -ne 0) {
-    # If it fails, dump the last bit of the log so we see the Microsoft error
-    Get-Content "C:\Windows\Temp\*-*.log" -Tail 20 | Write-Output
-    throw "Office installation failed with Exit Code $($process.ExitCode)"
+    Write-Output "Office installation failed with Exit Code $($process.ExitCode)"
+    # Dump the Microsoft setup log if it exists
+    if (Test-Path "C:\Windows\Temp\*-*.log") {
+        Get-Content "C:\Windows\Temp\*-*.log" -Tail 20 | Write-Output
+    }
+    throw "Installation failed with code $($process.ExitCode)"
 }
 
-Write-Output "Office and Visio installation complete."
+Write-Output "Office and Visio installation successfully completed on E:."
