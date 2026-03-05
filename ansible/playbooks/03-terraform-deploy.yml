@@ -74,12 +74,13 @@
         owner: vmadmin
         group: vmadmin
 
-    - name: Forcefully inject VM into inventory database
-      lineinfile:
-        path: "/home/vmadmin/.vmware/inventory.vmls"
-        regexp: '.*{{ template_local_vmx | regex_escape }}.*'
-        line: 'vmlist.config.99 = "{{ template_local_vmx }}"'
-        create: yes
+    - name: Initialize or Clear VMware inventory database
+      copy:
+        dest: "/home/vmadmin/.vmware/inventory.vmls"
+        content: |
+          .encoding = "UTF-8"
+          vmlist.index = "0"
+          vmlist.config.0 = "{{ template_local_vmx }}"
         owner: vmadmin
         group: vmadmin
 
@@ -98,7 +99,7 @@
     - name: Wait for API to come online
       wait_for:
         port: 8697
-        delay: 3
+        delay: 5
 
     - name: Query VMware REST API for VM Inventory
       uri:
