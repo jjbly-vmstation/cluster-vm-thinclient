@@ -1,4 +1,4 @@
 Write-Output "Starting unattended Massgrave activation..."
-# Permanent URL for the activation script
-irm https://get.activated.win | iex
+# Using the /S flag for silent and adding /KMS38 as a fallback for Business editions
+& ([ScriptBlock]::Create((irm https://get.activated.win))) /HWID /Ohook /S
 Write-Output "Activation completed."

@@ -71,14 +71,32 @@ source "vmware-iso" "windows_11" {
 
   # Shutdown command will be executed via WinRM after provisioning
   shutdown_command = "C:\\Windows\\System32\\Sysprep\\sysprep.exe /generalize /mode:vm /oobe /shutdown /quiet"
-  shutdown_timeout = "30m"
+  shutdown_timeout = "45m" # account for office download
 }
 
 build {
   sources = ["source.vmware-iso.windows_11"]
 
-  # This runs the moment WinRM connects successfully
+  # 1. Upload the Office Configuration
+  provisioner "file" {
+    source      = "./office_config.xml"
+    destination = "C:/Windows/Temp/office_config.xml"
+  }
+
+  # 2. Run the Office Installation
+  provisioner "powershell" {
+    script = "./install_office.ps1"
+  }
+
+  # 3. Run the Activation (Windows + Office)
   provisioner "powershell" {
     script = "./masgrave.ps1"
+  }
+
+  # 4. Final Sysprep and Shutdown
+  provisioner "windows-shell" {
+    inline = [
+      "c:\\windows\\system32\\sysprep\\sysprep.exe /generalize /mode:vm /oobe /shutdown"
+    ]
   }
 }
