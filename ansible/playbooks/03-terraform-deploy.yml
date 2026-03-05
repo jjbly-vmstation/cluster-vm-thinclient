@@ -18,21 +18,28 @@
     vm_dest_vmx: "{{ vm_dest_dir }}/win11-production.vmx"
 
   tasks:
-    - name: Cleanup previous failed attempts and artifacts
+    - name: 1. Cleanup previous failed attempts and artifacts
       shell: |
         rm -rf /mnt/storage/vmware/packer*
         rm -rf "{{ template_local_dir }}"
         rm -rf "{{ vm_dest_dir }}"
-      ignore_errors: true
+      ignore_errors: yes
 
-    - name: Sync Terraform codebase
+    - name: 2. Sync Terraform codebase
       ansible.posix.synchronize:
         src: "../../terraform/"
         dest: "{{ terraform_dir }}/"
         recursive: yes
         delete: yes
 
-    - name: Ensure local writable template directory exists
+    - name: 3. Fix directory ownership for project root
+      file:
+        path: "{{ project_root }}"
+        owner: vmadmin
+        group: vmadmin
+        recurse: yes
+
+    - name: 4. Ensure local writable template directory exists
       file:
         path: "{{ template_local_dir }}"
         state: directory
@@ -40,20 +47,20 @@
         group: vmadmin
         mode: '0755'
 
-    - name: Stage Packer template from read-only NFS
+    - name: 5. Stage Packer template from read-only NFS
       ansible.posix.synchronize:
         src: "{{ template_nfs_dir }}/"
         dest: "{{ template_local_dir }}/"
       delegate_to: "{{ inventory_hostname }}"
 
-    - name: Fix ownership of copied template files immediately
+    - name: 6. Fix ownership of copied template files immediately
       file:
         path: "{{ template_local_dir }}"
         owner: vmadmin
         group: vmadmin
         recurse: yes
 
-    - name: Strip hardware identity and pre-answer move prompt
+    - name: 7. Strip hardware identity to force VMware to generate new ones
       lineinfile:
         path: "{{ template_local_vmx }}"
         regexp: "{{ item.regexp }}"
@@ -62,59 +69,37 @@
         - { regexp: '^uuid\..*' }
         - { regexp: '^vmci0\.id.*' }
         - { regexp: '^ethernet0\.generatedAddress.*' }
-      # Runs as root to bypass cross-device tmp issues
 
-    - name: Set auto-accept and creation flags
+    - name: 8. Set auto-accept and creation flags
       blockinfile:
         path: "{{ template_local_vmx }}"
         block: |
           uuid.action = "create"
           msg.autoanswer = "TRUE"
-      # Removed become_user: vmadmin here. Runs as root.
-    
-    - name: Set auto-accept and creation flags
-      blockinfile:
-        path: "{{ template_local_vmx }}"
-        block: |
-          uuid.action = "create"
-          msg.autoanswer = "TRUE"
-      become_user: vmadmin
 
-    - name: Ensure VMware configuration directory exists
-      file:
-        path: "/home/vmadmin/.vmware"
-        state: directory
-        owner: vmadmin
-        group: vmadmin
-        mode: '0700'
-
-    - name: Manually force VM into inventory database
-      copy:
-        dest: "/home/vmadmin/.vmware/inventory.vmls"
-        content: |
-          .encoding = "UTF-8"
-          vmlist.config.0 = "{{ template_local_vmx }}"
-          vmlist.index = "1"
-        owner: vmadmin
-        group: vmadmin
-        mode: '0600'
-
-    - name: Kill any hanging VMware processes
+    - name: 9. Kill any hanging VMware processes
       shell: "pkill -9 vmrest || true; pkill -9 vmrun || true"
-      ignore_errors: true
+      ignore_errors: yes
 
-    - name: Start API service with explicit home directory
-      shell: "nohup /usr/bin/vmrest > /home/vmadmin/vmrest.log 2>&1 &"
-      become_user: vmadmin
-      environment:
-        HOME: "/home/vmadmin"
+    - name: 10. Force VMware to generate UUIDs via NATIVE login shell
+      shell: |
+        su - vmadmin -c '/usr/bin/vmrun -T ws start "{{ template_local_vmx }}" nogui'
+        sleep 10
+        su - vmadmin -c '/usr/bin/vmrun -T ws stop "{{ template_local_vmx }}" hard'
+      args:
+        executable: /bin/bash
 
-    - name: Wait for API to settle
+    - name: 11. Start API service via NATIVE login shell
+      shell: "su - vmadmin -c 'nohup /usr/bin/vmrest > /home/vmadmin/vmrest.log 2>&1 &'"
+      args:
+        executable: /bin/bash
+
+    - name: 12. Wait for API to fully settle
       wait_for:
         port: 8697
         delay: 5
 
-    - name: Query API for VM ID
+    - name: 13. Query API for VM ID (With Retries)
       uri:
         url: "http://127.0.0.1:8697/api/vms"
         method: GET
@@ -122,15 +107,15 @@
         url_password: "{{ vmws_pass }}"
         force_basic_auth: yes
       register: api_response
-      retries: 3
+      retries: 5
       delay: 5
       until: api_response.json | length > 0
 
-    - name: Extract Template VM ID
+    - name: 14. Extract Template VM ID
       set_fact:
         template_vm_id: "{{ api_response.json[0].id }}"
 
-    - name: Terraform Apply
+    - name: 15. Terraform Apply
       shell: |
         terraform init
         terraform apply -auto-approve \
@@ -140,7 +125,29 @@
         chdir: "{{ terraform_dir }}"
       become_user: vmadmin
 
-    - name: Create Systemd service for production VM
-      template:
-        src: "../../templates/vm-service.j2" # Or use a 'copy' with 'content' as before
-        dest: "/etc/systemd/system/win11-production.service"
+    - name: 16. Configure 100% Uptime Service (Systemd)
+      copy:
+        dest: /etc/systemd/system/win11-production.service
+        content: |
+          [Unit]
+          Description=Windows 11 Production VM
+          After=network.target vmware.service
+          Requires=vmware.service
+
+          [Service]
+          Type=forking
+          ExecStart=/usr/bin/vmrun -T ws start "{{ vm_dest_vmx }}" nogui
+          ExecStop=/usr/bin/vmrun -T ws stop "{{ vm_dest_vmx }}" soft
+          Restart=always
+          RestartSec=30
+          User=vmadmin
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: 17. Enable and Start VM
+      systemd:
+        name: win11-production
+        enabled: true
+        state: started
+        daemon_reload: true
