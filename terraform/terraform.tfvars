@@ -1,13 +1,9 @@
-libvirt_uri      = "qemu:///system"
-pool_name        = "default"
-vm_name          = "windows-thinclient"
-memory_mb        = 12288
-vcpus            = 4
-os_disk_size_gb  = 64
-data_disk_size_gb = 100
-
-iso_path         = "/home/vmadmin/iso/en-us_windows_11_business_editions_version_25h2_updated_feb_2026_x64_dvd_9271bf68.iso"
-virtio_iso_path  = "/home/vmadmin/iso/virtio-win.iso"
-
-network_name     = "default"
-mac_address      = "52:54:00:00:f0:0d"
+vmws_url       = "http://127.0.0.1:8697/api"
+vmws_user      = "vmadmin"
+# vmws_pass is omitted here for security; pass it via CLI or environment variable (TF_VAR_vmws_pass)
+vm_name        = "win11-production"
+vm_description = "Production - Office/Visio - Activated"
+processors     = 4
+memory         = 12288
+sourceid       = "/mnt/media/iso/win11e/win11-template.vmx"
+dest_path      = "/mnt/storage/vmware/win11-production/win11-production.vmx"
