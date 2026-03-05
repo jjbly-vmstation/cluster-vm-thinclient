@@ -43,7 +43,10 @@ source "vmware-iso" "windows_11" {
   headless          = true        # Set false to see the console (debug)
 
   network_adapter_type = "e1000e"
-  cd_files = ["./autounattend.xml"]
+  cd_files = [
+    "./autounattend.xml"
+    "./packer_cache/office"
+    ]
   cd_label = "AUTOMATION"
   
   

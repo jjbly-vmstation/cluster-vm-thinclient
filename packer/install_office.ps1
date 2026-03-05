@@ -1,26 +1,30 @@
 $ErrorActionPreference = "Stop"
 
-# Force TLS 1.2 to ensure secure connections to Microsoft's servers don't drop
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+Write-Output "Locating the Automation CD Drive..."
+# Identify the drive letter for the CD-ROM containing our setup
+$driveLetter = Get-Volume | 
+    Where-Object DriveType -eq 'CD-ROM' | 
+    Select-Object -ExpandProperty DriveLetter | 
+    Select-Object -First 1
 
-$url = "https://go.microsoft.com/fwlink/p/?LinkID=626065"
-$odtPath = "C:\Windows\Temp\odt.exe"
-$extractDir = "C:\Windows\Temp\odt"
+if (-not $driveLetter) {
+    throw "Could not find any mounted CD-ROM drive."
+}
 
-Write-Output "Downloading Office Deployment Tool..."
-# WebClient is generally more reliable and synchronous in headless provisioning
-(New-Object System.Net.WebClient).DownloadFile($url, $odtPath)
+$setupPath = "$($driveLetter):\setup.exe"
+# Ensure this filename matches exactly what is in your tree
+$configPath = "$($driveLetter):\configuration-Office365-x64.xml"
 
-# Remove the "Mark of the Web" so Windows doesn't block the executable
-Unblock-File -Path $odtPath
-
-Write-Output "Creating extraction directory..."
-New-Item -ItemType Directory -Force -Path $extractDir | Out-Null
-
-Write-Output "Extracting ODT..."
-Start-Process -FilePath $odtPath -ArgumentList "/extract:$extractDir /quiet" -Wait
-
-Write-Output "Starting Office Installation (This may take 5-10 minutes)..."
-Start-Process -FilePath "$extractDir\setup.exe" -ArgumentList "/configure C:\Windows\Temp\office_config.xml" -Wait
+if (Test-Path $setupPath) {
+    Write-Output "Found Office Setup on drive $($driveLetter):. Starting installation..."
+    # Start the installation using the local configuration
+    $process = Start-Process -FilePath $setupPath -ArgumentList "/configure `"$configPath`"" -Wait -PassThru
+    
+    if ($process.ExitCode -ne 0) {
+        throw "Office installation failed with exit code $($process.ExitCode)"
+    }
+} else {
+    throw "setup.exe not found on drive $($driveLetter):"
+}
 
 Write-Output "Office Installation Complete."
