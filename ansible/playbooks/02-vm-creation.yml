@@ -8,12 +8,10 @@
     iso_path: "/home/vmadmin/iso/en-us_windows_11_business_editions_version_25h2_updated_feb_2026_x64_dvd_9271bf68.iso"
 
   tasks:
-    - name: Ensure Packer is installed
-      shell: |
-        dnf config-manager --add-repo https://rpm.releases.hashicorp.com/RHEL/hashicorp.repo
-        dnf install -y packer
-      args:
-        creates: /usr/bin/packer
+    - name: Install Packer
+      dnf:
+        name: packer
+        state: present
 
     - name: Create packer directory
       file:
@@ -90,11 +88,12 @@
       shell: |
         export PACKER_LOG=1
         export TMPDIR=/mnt/storage/vmware/
-        packer init win11.pkr.hcl
-        packer build -force -on-error=ask -var "vm_password={{ vmws_pass }}" win11.pkr.hcl > /mnt/storage/vmware/packer-win11-build.log 2>&1
+        packer build -force -var "vm_password={{ vmws_pass }}" win11.pkr.hcl 2>&1 | tee /mnt/storage/vmware/packer-win11-build.log
       args:
         chdir: "{{ packer_dir }}"
       become_user: vmadmin
+      register: packer_build
+      failed_when: packer_build.rc != 0
 
     - name: Clean up answer file
       file:
