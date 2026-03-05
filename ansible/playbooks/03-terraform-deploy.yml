@@ -21,7 +21,7 @@
     - name: Cleanup digital graveyard (Packer artifacts)
       shell: |
         rm -rf /mnt/storage/vmware/packer*
-      ignore_errors: true
+      ignore_errors: yes
 
     - name: Install Terraform and dependencies
       dnf:
@@ -57,6 +57,12 @@
         dest: "{{ template_local_dir }}/"
       delegate_to: "{{ inventory_hostname }}"
 
+    - name: CRITICAL FIX - Purge stale VMware lock files from copied template
+      shell: |
+        rm -rf "{{ template_local_dir }}"/*.lck
+        rm -rf "{{ template_local_dir }}"/*.lock
+      ignore_errors: yes
+
     - name: Ensure vmadmin owns the copied template files
       file:
         path: "{{ template_local_dir }}"
@@ -78,38 +84,39 @@
         state: directory
         owner: vmadmin
         group: vmadmin
+        mode: '0755'
 
     - name: Forcefully write valid VMware inventory database
       copy:
         dest: "/home/vmadmin/.vmware/inventory.vmls"
         content: |
           .encoding = "UTF-8"
-          vmlist.index = "1"
           vmlist.config.0 = "{{ template_local_vmx }}"
-          vmlist.config.0.name = "win11-template"
-          vmlist.config.0.id = "0"
+          vmlist.index = "1"
         owner: vmadmin
         group: vmadmin
+        mode: '0644'
 
-    - name: Force VMware to generate new UUIDs (Power Cycle)
-      shell: |
-        /usr/bin/vmrun -T ws stop "{{ template_local_vmx }}" hard || true
-        /usr/bin/vmrun -T ws start "{{ template_local_vmx }}" nogui
-        sleep 5
-        /usr/bin/vmrun -T ws stop "{{ template_local_vmx }}" hard
-      become_user: vmadmin
-
-    - name: Restart vmrest API to refresh inventory cache
+    - name: Stop all running VMware headless processes to release database locks
       shell: |
         pkill -9 vmrest || true
-        sleep 1
-        nohup vmrest > /dev/null 2>&1 &
+        pkill -9 vmrun || true
       become_user: vmadmin
 
-    - name: Wait for API to come online
+    - name: Restart vmrest API with strict environment isolation
+      shell: |
+        export HOME=/home/vmadmin
+        export USER=vmadmin
+        nohup /usr/bin/vmrest > /home/vmadmin/vmrest.log 2>&1 &
+      become_user: vmadmin
+      environment:
+        HOME: "/home/vmadmin"
+        USER: "vmadmin"
+
+    - name: Wait for API to fully parse inventory
       wait_for:
         port: 8697
-        delay: 5
+        delay: 4
 
     - name: Query VMware REST API for VM Inventory
       uri:
