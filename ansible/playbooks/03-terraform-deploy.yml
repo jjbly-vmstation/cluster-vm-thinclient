@@ -23,7 +23,7 @@
         rm -rf /mnt/storage/vmware/packer*
         rm -rf "{{ template_local_dir }}"
         rm -rf "{{ vm_dest_dir }}"
-      ignore_errors: yes
+      ignore_errors: true
 
     - name: 2. Sync Terraform codebase
       ansible.posix.synchronize:
@@ -86,7 +86,7 @@
 
     - name: 10. Kill any hanging VMware processes
       shell: "pkill -9 vmrest || true; pkill -9 vmrun || true"
-      ignore_errors: yes
+      ignore_errors: true
 
     - name: 11. Force VMware to generate UUIDs via NATIVE login shell
       shell: |
