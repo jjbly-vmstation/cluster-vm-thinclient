@@ -1,5 +1,5 @@
 ---
-- name: Phase 2 - Deploy Production VM (Tools + Terraform + Uptime + Backups)
+- name: Phase 2 - Production Deployment
   hosts: homelab
   become: true
   vars_files:
@@ -7,27 +7,21 @@
   vars:
     project_root: "/home/vmadmin/vmstation-org/cluster-vm-thinclient"
     terraform_dir: "{{ project_root }}/terraform"
-    # Read-only Golden Image Source from your NFS share
+    # NFS Read-only source
     template_path: "/mnt/media/iso/win11e/win11-template.vmx"
-    # Production Instance Destination
-    vm_destination: "/mnt/storage/vmware/win11-production"
-    backup_dir: "/mnt/storage/backups/production"
+    # Local production destination
+    vm_dest_dir: "/mnt/storage/vmware/win11-production"
+    vm_dest_vmx: "/mnt/storage/vmware/win11-production/win11-production.vmx"
 
   tasks:
-    # --- 1. ENSURE TOOLS ARE INSTALLED ---
-    - name: Add HashiCorp repository
+    - name: Install Terraform and dependencies
       shell: |
         dnf install -y dnf-plugins-core
         dnf config-manager --add-repo https://rpm.releases.hashicorp.com/RHEL/hashicorp.repo
+        dnf install -y terraform
       args:
-        creates: /etc/yum.repos.d/hashicorp.repo
+        creates: /usr/bin/terraform
 
-    - name: Install Terraform
-      dnf:
-        name: terraform
-        state: present
-
-    # --- 2. PREPARE ENVIRONMENT ---
     - name: Sync Terraform codebase
       ansible.posix.synchronize:
         src: "../../terraform/"
@@ -35,26 +29,40 @@
         recursive: yes
         delete: yes
 
-    - name: Ensure destination directory exists
+    - name: Fix directory ownership (CRITICAL FIX)
       file:
-        path: "{{ vm_destination }}"
+        path: "{{ project_root }}"
+        owner: vmadmin
+        group: vmadmin
+        recurse: yes
+
+    - name: Fix duplicate variable declaration in variables.tf
+      lineinfile:
+        path: "{{ terraform_dir }}/variables.tf"
+        regexp: '^variable "sourceid"'
+        state: absent
+        firstmatch: false
+
+    - name: Ensure deployment directory exists
+      file:
+        path: "{{ vm_dest_dir }}"
         state: directory
         owner: vmadmin
         group: vmadmin
 
-    # --- 3. EXECUTE DEPLOYMENT ---
     - name: Terraform Apply
       shell: |
         terraform init -upgrade
         terraform apply -auto-approve \
           -var="vmws_pass={{ vmws_pass }}" \
-          -var="sourceid={{ template_path }}"
+          -var="sourceid={{ template_path }}" \
+          -var="dest_path={{ vm_dest_vmx }}" \
+          -var="vm_name=win11-production"
       args:
         chdir: "{{ terraform_dir }}"
       become_user: vmadmin
 
-    # --- 4. CONFIGURE UPTIME (100% Availability) ---
-    - name: Deploy Systemd keep-alive service
+    - name: Configure 100% Uptime Service
       copy:
         dest: /etc/systemd/system/win11-production.service
         content: |
@@ -65,9 +73,8 @@
 
           [Service]
           Type=forking
-          # Using vmrun to manage the lifecycle
-          ExecStart=/usr/bin/vmrun -T ws start "{{ vm_destination }}/win11-template.vmx" nogui
-          ExecStop=/usr/bin/vmrun -T ws stop "{{ vm_destination }}/win11-template.vmx" soft
+          ExecStart=/usr/bin/vmrun -T ws start "{{ vm_dest_vmx }}" nogui
+          ExecStop=/usr/bin/vmrun -T ws stop "{{ vm_dest_vmx }}" soft
           Restart=always
           RestartSec=30
           User=vmadmin
@@ -75,37 +82,17 @@
           [Install]
           WantedBy=multi-user.target
 
-    - name: Enable and start production service
+    - name: Enable and Start VM
       systemd:
         name: win11-production
         enabled: true
         state: started
         daemon_reload: true
 
-    # --- 5. CONFIGURE PROTECTION (Automated Backups) ---
-    - name: Create backup script
-      copy:
-        dest: /home/vmadmin/scripts/backup-production-vm.sh
-        mode: '0755'
-        owner: vmadmin
-        content: |
-          #!/bin/bash
-          VM_PATH="{{ vm_destination }}/win11-template.vmx"
-          DATE=$(date +%Y-%m-%d)
-          DEST="{{ backup_dir }}/$DATE"
-
-          mkdir -p "$DEST"
-          # Snapshot allows backup while the VM is running
-          /usr/bin/vmrun -T ws snapshot "$VM_PATH" "Backup-$DATE"
-          cp -r {{ vm_destination }}/* "$DEST/"
-          /usr/bin/vmrun -T ws deleteSnapshot "$VM_PATH" "Backup-$DATE"
-          # Retention: 7 days
-          find {{ backup_dir }}/* -type d -mtime +7 -exec rm -rf {} +
-
-    - name: Schedule automated nightly backups
+    - name: Setup Automated Backups
       cron:
         name: "Nightly Win11 Backup"
         minute: "0"
         hour: "2"
-        job: "/home/vmadmin/scripts/backup-production-vm.sh"
+        job: "/usr/bin/vmrun -T ws snapshot {{ vm_dest_vmx }} Backup-$(date +\\%Y-\\%m-\\%d) && cp -r {{ vm_dest_dir }} /mnt/storage/backups/production/$(date +\\%Y-\\%m-\\%d)"
         user: vmadmin
