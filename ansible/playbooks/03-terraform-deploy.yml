@@ -32,19 +32,12 @@
         recursive: yes
         delete: yes
 
-    - name: Fix directory ownership
+    - name: Fix directory ownership for project root
       file:
         path: "{{ project_root }}"
         owner: vmadmin
         group: vmadmin
         recurse: yes
-
-    - name: Ensure deployment directory exists
-      file:
-        path: "{{ vm_dest_dir }}"
-        state: directory
-        owner: vmadmin
-        group: vmadmin
 
     - name: Ensure local writable template directory exists
       file:
@@ -74,12 +67,27 @@
         state: present
       become_user: vmadmin
 
-    - name: Force VMware to register template (Power Cycle)
+    - name: Ensure VMware user directory exists
+      file:
+        path: "/home/vmadmin/.vmware"
+        state: directory
+        owner: vmadmin
+        group: vmadmin
+
+    - name: Forcefully inject VM into inventory database
+      lineinfile:
+        path: "/home/vmadmin/.vmware/inventory.vmls"
+        regexp: '.*{{ template_local_vmx | regex_escape }}.*'
+        line: 'vmlist.config.99 = "{{ template_local_vmx }}"'
+        create: yes
+        owner: vmadmin
+        group: vmadmin
+
+    - name: Force VMware to generate new UUIDs (Power Cycle)
       shell: |
         /usr/bin/vmrun -T ws start "{{ template_local_vmx }}" nogui
         /usr/bin/vmrun -T ws stop "{{ template_local_vmx }}" hard
       become_user: vmadmin
-      # ignore_errors is removed so we can properly catch if this fails
 
     - name: Restart vmrest API to refresh inventory cache
       shell: |
@@ -90,7 +98,7 @@
     - name: Wait for API to come online
       wait_for:
         port: 8697
-        delay: 2
+        delay: 3
 
     - name: Query VMware REST API for VM Inventory
       uri:
@@ -112,16 +120,6 @@
       fail:
         msg: "Could not find the VM in the API response. API returned: {{ api_response.content }}"
       when: template_vm_id is not defined
-
-    - name: Terraform Apply
-      shell: |
-        terraform init
-        terraform apply -auto-approve \
-          -var="vmws_pass={{ vmws_pass }}" \
-          -var="sourceid={{ template_vm_id }}"
-      args:
-        chdir: "{{ terraform_dir }}"
-      become_user: vmadmin
 
     - name: Terraform Apply
       shell: |
@@ -162,8 +160,8 @@
 
     - name: Setup Automated Nightly Backups
       cron:
-        name: "Nightly Win11 Backup"
+        name: "Nightly Windows 11 Backup"
         minute: "0"
         hour: "2"
-        job: "/usr/bin/vmrun -T ws snapshot {{ vm_dest_vmx }} Backup-$(date +\\%Y-\\%m-\\%d) && cp -r {{ vm_dest_dir }} /mnt/storage/backups/production/$(date +\\%Y-\\%m-\\%d)"
+        job: "/usr/bin/rsync -a --delete {{ vm_dest_dir }}/ /mnt/storage/backups/win11-production/"
         user: vmadmin
