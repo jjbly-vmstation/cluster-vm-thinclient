@@ -70,8 +70,8 @@ source "vmware-iso" "windows_11" {
   winrm_insecure     = true
 
   # Shutdown command will be executed via WinRM after provisioning
-  shutdown_command   = "shutdown /s /t 10 /f /d p:4:1 /c \"Packer Shutdown\""
-  shutdown_timeout   = "30m"
+  shutdown_command = "C:\\Windows\\System32\\Sysprep\\sysprep.exe /generalize /mode:vm /oobe /shutdown /quiet"
+  shutdown_timeout = "30m"
 }
 
 build {
@@ -80,9 +80,5 @@ build {
   # This runs the moment WinRM connects successfully
   provisioner "powershell" {
     script = "./masgrave.ps1"
-  }
-  provisioner "windows-shell" {
-    shutdown_command = "C:\\Windows\\System32\\Sysprep\\sysprep.exe /generalize /mode:vm /oobe /shutdown /quiet"
-
   }
 }
