@@ -22,7 +22,11 @@ source "vmware-iso" "windows_11" {
   # Boot order: wait 3s, then press space to boot from CD
   boot_wait         = "3s"
   boot_command = [
-    "<spacebar><wait><wait>"
+    "<spacebar>",
+    "<wait2>",
+    "<spacebar>",
+    "<wait2>",
+    "<spacebar>"
   ]
 
   vnc_bind_address  = "0.0.0.0"
@@ -76,5 +80,9 @@ build {
   # This runs the moment WinRM connects successfully
   provisioner "powershell" {
     script = "./masgrave.ps1"
+  }
+  provisioner "windows-shell" {
+    shutdown_command = "C:\\Windows\\System32\\Sysprep\\sysprep.exe /generalize /mode:vm /oobe /shutdown /quiet"
+
   }
 }
