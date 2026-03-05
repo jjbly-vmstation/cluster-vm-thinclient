@@ -1,5 +1,5 @@
 ---
-- name: Phase 2 - Deploy VM from Template (Terraform)
+- name: Phase 2 - Deploy Production VM (Tools + Terraform + Uptime + Backups)
   hosts: homelab
   become: true
   vars_files:
@@ -7,9 +7,27 @@
   vars:
     project_root: "/home/vmadmin/vmstation-org/cluster-vm-thinclient"
     terraform_dir: "{{ project_root }}/terraform"
-    template_path: "/home/vmadmin/vmware/win11-template/win11-template.vmx"
+    # Read-only Golden Image Source from your NFS share
+    template_path: "/mnt/media/iso/win11e/win11-template.vmx"
+    # Production Instance Destination
+    vm_destination: "/mnt/storage/vmware/win11-production"
+    backup_dir: "/mnt/storage/backups/production"
 
   tasks:
+    # --- 1. ENSURE TOOLS ARE INSTALLED ---
+    - name: Add HashiCorp repository
+      shell: |
+        dnf install -y dnf-plugins-core
+        dnf config-manager --add-repo https://rpm.releases.hashicorp.com/RHEL/hashicorp.repo
+      args:
+        creates: /etc/yum.repos.d/hashicorp.repo
+
+    - name: Install Terraform
+      dnf:
+        name: terraform
+        state: present
+
+    # --- 2. PREPARE ENVIRONMENT ---
     - name: Sync Terraform codebase
       ansible.posix.synchronize:
         src: "../../terraform/"
@@ -17,7 +35,15 @@
         recursive: yes
         delete: yes
 
-    - name: Terraform Apply (Securely passing credentials)
+    - name: Ensure destination directory exists
+      file:
+        path: "{{ vm_destination }}"
+        state: directory
+        owner: vmadmin
+        group: vmadmin
+
+    # --- 3. EXECUTE DEPLOYMENT ---
+    - name: Terraform Apply
       shell: |
         terraform init -upgrade
         terraform apply -auto-approve \
@@ -26,3 +52,60 @@
       args:
         chdir: "{{ terraform_dir }}"
       become_user: vmadmin
+
+    # --- 4. CONFIGURE UPTIME (100% Availability) ---
+    - name: Deploy Systemd keep-alive service
+      copy:
+        dest: /etc/systemd/system/win11-production.service
+        content: |
+          [Unit]
+          Description=Windows 11 Production VM
+          After=network.target vmware.service
+          Requires=vmware.service
+
+          [Service]
+          Type=forking
+          # Using vmrun to manage the lifecycle
+          ExecStart=/usr/bin/vmrun -T ws start "{{ vm_destination }}/win11-template.vmx" nogui
+          ExecStop=/usr/bin/vmrun -T ws stop "{{ vm_destination }}/win11-template.vmx" soft
+          Restart=always
+          RestartSec=30
+          User=vmadmin
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Enable and start production service
+      systemd:
+        name: win11-production
+        enabled: true
+        state: started
+        daemon_reload: true
+
+    # --- 5. CONFIGURE PROTECTION (Automated Backups) ---
+    - name: Create backup script
+      copy:
+        dest: /home/vmadmin/scripts/backup-production-vm.sh
+        mode: '0755'
+        owner: vmadmin
+        content: |
+          #!/bin/bash
+          VM_PATH="{{ vm_destination }}/win11-template.vmx"
+          DATE=$(date +%Y-%m-%d)
+          DEST="{{ backup_dir }}/$DATE"
+
+          mkdir -p "$DEST"
+          # Snapshot allows backup while the VM is running
+          /usr/bin/vmrun -T ws snapshot "$VM_PATH" "Backup-$DATE"
+          cp -r {{ vm_destination }}/* "$DEST/"
+          /usr/bin/vmrun -T ws deleteSnapshot "$VM_PATH" "Backup-$DATE"
+          # Retention: 7 days
+          find {{ backup_dir }}/* -type d -mtime +7 -exec rm -rf {} +
+
+    - name: Schedule automated nightly backups
+      cron:
+        name: "Nightly Win11 Backup"
+        minute: "0"
+        hour: "2"
+        job: "/home/vmadmin/scripts/backup-production-vm.sh"
+        user: vmadmin

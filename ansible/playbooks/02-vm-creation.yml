@@ -103,3 +103,5 @@
       file:
         path: "{{ packer_dir }}/autounattend.xml"
         state: absent
+
+  # manually moved the generated VMDK and OVF to the correct location for use with Terraform, since Packer's VMware builder doesn't support outputting directly to a read only media/iso directory
