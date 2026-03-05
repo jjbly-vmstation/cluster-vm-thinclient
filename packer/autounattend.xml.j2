@@ -159,30 +159,27 @@
                 <SkipUserOOBE>true</SkipUserOOBE>
             </OOBE>
             <FirstLogonCommands>
+                <!-- Step 1: Set network to Private so PSRemoting is allowed -->
                 <SynchronousCommand wcm:action="add">
                     <Order>1</Order>
-                    <CommandLine>powershell -Command "Set-NetConnectionProfile -NetworkCategory Private"</CommandLine>
-                    <Description>Ensure Network is Private</Description>
+                    <CommandLine>powershell -ExecutionPolicy Bypass -Command "Get-NetConnectionProfile | Set-NetConnectionProfile -NetworkCategory Private"</CommandLine>
+                    <Description>Set all network profiles to Private</Description>
                 </SynchronousCommand>
+                <!-- Step 2: Single authoritative WinRM setup script.
+                     Uses winrm quickconfig (not Enable-PSRemoting) to avoid the
+                     "listener already exists" failure that causes auth settings to
+                     be skipped. All config is applied atomically before the final
+                     service restart, so Packer always sees Basic + Unencrypted. -->
                 <SynchronousCommand wcm:action="add">
                     <Order>2</Order>
-                    <CommandLine>cmd.exe /c winrm create winrm/config/Listener?Address=*+Transport=HTTP</CommandLine>
-                    <Description>Create WinRM HTTP Listener</Description>
+                    <CommandLine>powershell -ExecutionPolicy Bypass -Command "Stop-Service WinRM -Force -ErrorAction SilentlyContinue; Set-Item WSMan:\localhost\Service\Auth\Basic $true; Set-Item WSMan:\localhost\Service\AllowUnencrypted $true; Set-Item WSMan:\localhost\Client\Auth\Basic $true; Set-Item WSMan:\localhost\Client\AllowUnencrypted $true; winrm quickconfig -q -force; Start-Service WinRM; netsh advfirewall firewall set rule group='Windows Remote Management' new enable=yes"</CommandLine>
+                    <Description>Configure WinRM with Basic auth and unencrypted HTTP for Packer</Description>
                 </SynchronousCommand>
+                <!-- Step 3: Verify and log WinRM state to C:\winrm-setup.log for debugging -->
                 <SynchronousCommand wcm:action="add">
                     <Order>3</Order>
-                    <CommandLine>cmd.exe /c "winrm set winrm/config/service/auth @{Basic=&quot;true&quot;}"</CommandLine>
-                    <Description>Enable WinRM Basic Auth</Description>
-                </SynchronousCommand>
-                <SynchronousCommand wcm:action="add">
-                    <Order>4</Order>
-                    <CommandLine>cmd.exe /c "winrm set winrm/config/service @{AllowUnencrypted=&quot;true&quot;}"</CommandLine>
-                    <Description>Enable WinRM Unencrypted</Description>
-                </SynchronousCommand>
-                <SynchronousCommand wcm:action="add">
-                    <Order>5</Order>
-                    <CommandLine>cmd.exe /c "net stop winrm &amp;&amp; net start winrm"</CommandLine>
-                    <Description>Final WinRM Bounce</Description>
+                    <CommandLine>powershell -ExecutionPolicy Bypass -Command "winrm enumerate winrm/config/Listener | Out-File C:\winrm-setup.log; winrm get winrm/config/service | Out-File -Append C:\winrm-setup.log; winrm get winrm/config/service/auth | Out-File -Append C:\winrm-setup.log"</CommandLine>
+                    <Description>Log WinRM config for post-mortem debugging</Description>
                 </SynchronousCommand>
             </FirstLogonCommands>
         </component>
