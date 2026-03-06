@@ -46,16 +46,21 @@
         dest: "{{ template_local_dir }}/"
       delegate_to: "{{ inventory_hostname }}"
 
-    - name: 5. Purge all hardware identity and stale logs
+    - name: 5. Purge problematic keys and invalid comment syntax
       shell: |
-        sed -i '/^uuid\./d' "{{ template_local_vmx }}"
-        sed -i '/^vmci0\.id/d' "{{ template_local_vmx }}"
-        sed -i '/^ethernet0\.generatedAddress/d' "{{ template_local_vmx }}"
+        # Strip all identity keys to prevent duplicates or conflicts
+        sed -i '/(?i)^uuid\./d' "{{ template_local_vmx }}"
+        sed -i '/(?i)^vmci0\.id/d' "{{ template_local_vmx }}"
+        sed -i '/(?i)^ethernet0\.generatedAddress/d' "{{ template_local_vmx }}"
+        sed -i '/(?i)^msg\.autoanswer/d' "{{ template_local_vmx }}"
+        # Strip any existing C-style comments (//) that break the VMX parser
+        sed -i '/^\/\//d' "{{ template_local_vmx }}"
+        # Cleanup auxiliary files
         rm -f "{{ template_local_dir }}"/*.log
         rm -f "{{ template_local_dir }}"/*.vmxf
         rm -f "{{ template_local_dir }}"/*.vmsd
 
-    - name: 6. Generate and Inject Fresh Hardware UUIDs
+    - name: 6. Generate and Inject Fresh Hardware Identity
       shell: |
         raw_uuid=$(uuidgen)
         part1=$(echo $raw_uuid | cut -c 1-2); part2=$(echo $raw_uuid | cut -c 3-4); part3=$(echo $raw_uuid | cut -c 5-6); part4=$(echo $raw_uuid | cut -c 7-8)
@@ -64,29 +69,31 @@
         part13=$(echo $raw_uuid | cut -c 29-30); part14=$(echo $raw_uuid | cut -c 31-32); part15=$(echo $raw_uuid | cut -c 33-34); part16=$(echo $raw_uuid | cut -c 35-36)
         formatted_uuid="$part1 $part2 $part3 $part4 $part5 $part6 $part7 $part8-$part9 $part10 $part11 $part12 $part13 $part14 $part15 $part16"
         
-        # Inject directly to avoid Ansible marker issues
+        # Use shell-style comments (#) for VMX compatibility
+        echo "# Hardware Identity Managed by Ansible" >> "{{ template_local_vmx }}"
         echo "uuid.bios = \"$formatted_uuid\"" >> "{{ template_local_vmx }}"
         echo "uuid.location = \"$formatted_uuid\"" >> "{{ template_local_vmx }}"
         echo "msg.autoanswer = \"TRUE\"" >> "{{ template_local_vmx }}"
         echo "uuid.action = \"create\"" >> "{{ template_local_vmx }}"
 
-    - name: 7. Fix Permissions and SELinux (Including Parent)
+    - name: 7. Fix Permissions and SELinux Labels
       shell: |
         chown -R vmadmin:vmadmin "{{ template_local_dir }}"
         chmod -R 755 "{{ template_local_dir }}"
+        # Fix the unlabeled parent directory identified in your logs
         semanage fcontext -a -t virt_content_t "/mnt/storage/vmware(/.*)?" || true
         restorecon -Rv /mnt/storage/vmware
 
-    - name: 8. Native Registration via D-Bus session (The "Secret Sauce")
+    - name: 8. Native Registration via D-Bus session
       shell: |
         su - vmadmin -c 'dbus-run-session -- /usr/bin/vmrun -T ws list' | grep "{{ template_local_vmx }}" || \
         su - vmadmin -c 'dbus-run-session -- /usr/bin/vmrun -T ws start "{{ template_local_vmx }}" nogui'
-        sleep 5
+        sleep 10
         su - vmadmin -c 'dbus-run-session -- /usr/bin/vmrun -T ws stop "{{ template_local_vmx }}" hard'
       args:
         executable: /bin/bash
 
-    - name: 9. Restart API service via D-Bus session
+    - name: 9. Start API service via D-Bus session
       shell: |
         pkill -9 vmrest || true
         su - vmadmin -c 'nohup dbus-run-session -- /usr/bin/vmrest > /home/vmadmin/vmrest.log 2>&1 &'
@@ -123,8 +130,8 @@
       args:
         chdir: "{{ terraform_dir }}"
       become_user: vmadmin
-      
-    - name: 14. Configure Systemd and Backup
+
+    - name: 14. Configure 100% Uptime Service (Systemd)
       copy:
         dest: /etc/systemd/system/win11-production.service
         content: |
