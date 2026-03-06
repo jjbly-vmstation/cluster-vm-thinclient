@@ -140,12 +140,14 @@
         status_code: [200, 204]
       when: target_snapshot_id is defined
 
-    - name: 7. Start the Template VM (Headless)
+    - name: 7. Start the VM as vmadmin with full environment
       become: true
       become_user: "{{ vm_admin_user }}"
-      command: "/usr/bin/vmrun -T ws start {{ template_vmx }} nogui"
+      # Use a login shell to ensure vmadmin's paths and permissions are loaded
+      shell: |
+        executable: /bin/bash
+        cmd: vmrun -T ws start "{{ template_vmx }}" nogui
       register: vm_start_cmd
-      # Don't fail if it's already running, just move on
       failed_when: 
         - vm_start_cmd.rc != 0 
         - "'is already running' not in vm_start_cmd.stderr"
