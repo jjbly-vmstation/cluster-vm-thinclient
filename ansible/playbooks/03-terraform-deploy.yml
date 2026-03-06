@@ -98,17 +98,20 @@
 
     - name: 6. Create VM via Direct API Call (Bypass Provider Limitation)
       uri:
-        url: "http://127.0.0.1:8697/api/vms/{{ template_vm_id }}/clone"
+        url: "http://127.0.0.1:{{ vmrest_port }}/api/vms/{{ template_vm_id }}/clone"
         method: POST
         user: "{{ vmws_user }}"
         password: "{{ vmws_pass }}"
         force_basic_auth: yes
         body_format: json
+        headers:
+          Accept: "application/vnd.vmware.vmw.rest-v1+json"
+          Content-Type: "application/json"
         body:
-          name: "{{ vm_name }}"
+          name: "win11-production"
           path: "/mnt/storage/vmware/win11-production"
           cloneType: "full"
-        status_code: [201, 409] # 409 means it already exists
+        status_code: [201, 409]
       register: clone_result
 
     - name: 6.1 Wait for Clone Operation to Complete
