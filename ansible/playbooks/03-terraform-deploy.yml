@@ -133,14 +133,12 @@
         port: 8697
         delay: 2
 
-    - name: 5.10 Get Snapshots for Template VM
-      uri:
-        url: "http://127.0.0.1:{{ vmrest_port }}/api/vms/{{ template_vm_id }}/snapshots"
-        method: GET
-        user: "{{ vmws_user }}"
-        password: "{{ vmws_pass }}"
-        force_basic_auth: yes
-      register: snapshot_list
+    - name: 5.10 Revert to Snapshot using vmrun (Bypass API 404)
+      become: true
+      become_user: "{{ vm_admin_user }}"
+      # Matches the snapshot name you confirmed manually
+      command: "/usr/bin/vmrun -T ws revertToSnapshot {{ template_vmx }} 'Post Setup Snapshot'"
+      register: revert_result
 
     - name: 5.11 Identify Latest Snapshot ID
       set_fact:
@@ -158,17 +156,18 @@
         status_code: [200, 204]
       when: target_snapshot_id is defined
 
-    - name: 7. Start the VM as vmadmin (Full Login Shell)
+    
+
+    - name: 7. Start the VM (Headless)
       become: true
-      become_user: vmadmin
+      become_user: "{{ vm_admin_user }}"
       shell:
-        # Use executable to ensure bash loads vmadmin's profile/permissions
-        cmd: "/usr/bin/vmrun -T ws start '{{ template_vmx }}' nogui"
+        cmd: "/usr/bin/vmrun -T ws start {{ template_vmx }} nogui"
         executable: /bin/bash
       register: vm_start_cmd
       failed_when: 
         - vm_start_cmd.rc != 0 
-        - "'is already running' not in vm_start_cmd.stderr"
+        - "'already running' not in vm_start_cmd.stderr"
 
     - name: 8. Verify VM is active in the hypervisor
       become: true
