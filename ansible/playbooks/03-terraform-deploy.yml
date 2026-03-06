@@ -5,26 +5,20 @@
   vars_files:
     - "/opt/vmstation-org/cluster-setup/ansible/inventory/group_vars/compute_nodes.yml"
   vars:
+    # Manual Configuration Note:
+    # I had to manually add the location of the VM in the VMware Workstation 
+    # GUI (logged in as vmadmin) to register the VM without errors. 
+    # This populates the inventory.vmls file which the API requires.
+
     project_root: "/home/vmadmin/vmstation-org/cluster-vm-thinclient"
     terraform_dir: "{{ project_root }}/terraform"
     
-    # Template Paths (Registered manually in GUI previously)
-    template_local_dir: "/mnt/storage/vmware/win11-template"
-    template_local_vmx: "{{ template_local_dir }}/win11-template.vmx"
-    
-    # Production Paths
+    # Template and Production Paths
+    template_local_vmx: "/mnt/storage/vmware/win11-template/win11-template.vmx"
     vm_dest_dir: "/mnt/storage/vmware/win11-production"
     vm_dest_vmx: "{{ vm_dest_dir }}/win11-production.vmx"
 
   tasks:
-    ###########################################################################
-    # MANUAL PRE-REQUISITE NOTE:
-    # I had to manually add the location of the VM in VMware Workstation GUI 
-    # (logged in as vmadmin) to register the VM without errors before running 
-    # this automation. The REST API cannot "see" VMs that are not in the 
-    # inventory.vmls of the user running the service.
-    ###########################################################################
-
     - name: 1. Ensure vmrest Systemd Service is Configured
       copy:
         dest: /etc/systemd/system/vmrest.service
@@ -38,7 +32,7 @@
           Type=simple
           User={{ vm_admin_user }}
           Group={{ vm_admin_user }}
-          # dbus-run-session is required on RHEL 10 for the API to access the VM inventory
+          # dbus-run-session is required on RHEL 10 for the API to access the GUI-registered inventory
           ExecStart=/usr/bin/dbus-run-session -- /usr/bin/vmrest -p {{ vmrest_port }} -i {{ vmrest_host }}
           Restart=always
           RestartSec=5
@@ -52,37 +46,36 @@
       become_user: "{{ vm_admin_user }}"
       changed_when: false
 
-    - name: 3. Start and Enable vmrest Service
+    - name: 3. Restart vmrest Service
       systemd:
         name: vmrest
         state: restarted
         enabled: yes
         daemon_reload: yes
 
-    - name: 4. Wait for VMware REST API to be Reachable
+    - name: 4. Wait for API Availability
       wait_for:
         port: "{{ vmrest_port }}"
         host: "127.0.0.1"
         timeout: 30
 
-    - name: 5. Query API for Template VM ID
+    - name: 5. Query API for Template ID
       uri:
         url: "http://127.0.0.1:{{ vmrest_port }}/api/vms"
         method: GET
         user: "{{ vmws_user }}"
         password: "{{ vmws_pass }}"
         force_basic_auth: yes
-        status_code: 200
       register: api_response
       retries: 5
       delay: 5
       until: api_response.json | length > 0
 
-    - name: 6. Extract Template VM ID
+    - name: 6. Extract Specific Template ID
       set_fact:
         template_vm_id: "{{ (api_response.json | selectattr('path', 'equalto', template_local_vmx) | list | first).id }}"
 
-    - name: 7. Run Terraform Apply
+    - name: 7. Run Terraform Deployment
       shell: |
         terraform init
         terraform apply -auto-approve \
@@ -92,21 +85,21 @@
         chdir: "{{ terraform_dir }}"
       become_user: "{{ vm_admin_user }}"
 
-    # - name: 8. Configure 100% Uptime Service for Production VM
-    #   copy:
-    #     dest: /etc/systemd/system/win11-production.service
-    #     content: |
-    #       [Unit]
-    #       Description=Windows 11 Production VM
-    #       After=network.target vmware.service
-    #       Requires=vmware.service
+    - name: 8. Configure 100% Uptime Service for Production VM
+      copy:
+        dest: /etc/systemd/system/win11-production.service
+        content: |
+          [Unit]
+          Description=Windows 11 Production VM
+          After=network.target vmware.service
+          Requires=vmware.service
 
-    #       [Service]
-    #       Type=forking
-    #       ExecStart=/usr/bin/vmrun -T ws start "{{ vm_dest_vmx }}" nogui
-    #       ExecStop=/usr/bin/vmrun -T ws stop "{{ vm_dest_vmx }}" soft
-    #       User={{ vm_admin_user }}
-    #       Restart=always
+          [Service]
+          Type=forking
+          ExecStart=/usr/bin/vmrun -T ws start "{{ vm_dest_vmx }}" nogui
+          ExecStop=/usr/bin/vmrun -T ws stop "{{ vm_dest_vmx }}" soft
+          User={{ vm_admin_user }}
+          Restart=always
 
     - name: 9. Ensure Production VM is Started
       systemd:
