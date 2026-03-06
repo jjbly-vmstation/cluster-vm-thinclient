@@ -25,7 +25,21 @@
     # 2. Created vmrest credentials manually via 'vmrest -C' as vmadmin.
     #    Credentials stored in ~vmadmin/.vmrestCfg
     ###########################################################################
+---
 
+- name: Phase 2 - Production Deployment
+  hosts: homelab
+  become: true
+  vars_files:
+    - "/opt/vmstation-org/cluster-setup/ansible/inventory/group_vars/compute_nodes.yml"
+  vars:
+    template_path: "/mnt/storage/vmware/win11-template"
+    template_vmx: "{{ template_path }}/win11-template.vmx"
+    vm_admin_user: "vmadmin"
+    snapshot_name: "Post Setup Snapshot"
+
+  tasks:
+    # --- API SERVICE MANAGEMENT ---
     - name: 1. Configure vmrest Systemd Service
       copy:
         dest: /etc/systemd/system/vmrest.service
@@ -39,16 +53,15 @@
           Type=simple
           User=vmadmin
           Group=vmadmin
-          # Ensure it looks in vmadmin's home for .vmrestCfg
           WorkingDirectory=/home/vmadmin
           Environment=HOME=/home/vmadmin
-          # Removed the -i flag. -p 8697 is sufficient.
           ExecStart=/usr/bin/dbus-run-session -- /usr/bin/vmrest -p 8697
           Restart=always
           RestartSec=5
 
           [Install]
           WantedBy=multi-user.target
+     
 
     - name: 2. Start and Enable vmrest Service
       systemd:
@@ -56,109 +69,32 @@
         state: restarted
         enabled: yes
         daemon_reload: yes
+     
 
-    - name: 3. Wait for API to Listen
-      wait_for:
-        port: "{{ vmrest_port }}"
-        host: "127.0.0.1"
-        timeout: 30
-
-    - name: 4. Query API for Dynamic VM ID
-      uri:
-        url: "http://127.0.0.1:{{ vmrest_port }}/api/vms"
-        method: GET
-        user: "{{ vmws_user }}"
-        password: "{{ vmws_pass }}"
-        force_basic_auth: yes
-      register: api_response
-      retries: 5
-      delay: 5
-      until: api_response.json | length > 0
-
-    - name: 5. Extract Source ID for Template
-      set_fact:
-        template_vm_id: "{{ (api_response.json | selectattr('path', 'equalto', template_local_vmx) | list | first).id }}"
-
-    - name: 5.4 Sync Terraform Files from Master to Homelab
-      synchronize:
-        # Relative path from /opt/vmstation-org/cluster-vm-thinclient/ansible
-        src: "../../terraform/" 
-        dest: "{{ terraform_dir }}/"
-        recursive: yes
-        delete: yes
-        rsync_opts:
-          - "--chown=vmadmin:vmadmin"
-      delegate_to: localhost
-
-    - name: 5.5 Ensure Terraform Directory Ownership
-      file:
-        path: "{{ terraform_dir }}"
-        owner: "{{ vm_admin_user }}"
-        group: "{{ vm_admin_user }}"
-        recurse: yes
-        state: directory
-
-    - name: 5.7 Check if Template VM already exists
-      stat:
-        path: "/mnt/storage/vmware/win11-template/win11-template.vmx"
-      register: vm_exists
-
-    - name: 5.8 Check if VM is currently running
-      command: /usr/bin/vmrun list
-      register: running_vms
-      changed_when: false
-
-    - name: 5.9 Find stale locks on remote RHEL host
+    # --- CLEANUP & SNAPSHOT REVERT ---
+    - name: 3. Find and Remove stale locks (Prevents "Oil Painting" Glitch)
       find:
-        paths: "/mnt/storage/vmware/win11-template"
+        paths: "{{ template_path }}"
         patterns: "*.lck"
         file_type: directory
       register: found_locks
+     
 
-    - name: 5.9.1 Remove found locks
+    - name: 4. Delete found locks
       file:
         path: "{{ item.path }}"
         state: absent
       loop: "{{ found_locks.files }}"
+     
 
-    - name: 5.9.2 Force restart vmrest to refresh inventory
-      systemd:
-        name: vmrest
-        state: restarted
-      # Only restart if we actually found and deleted locks
-      when: found_locks.matched > 0
-
-    - name: 5.9.3 Wait for API to stabilize
-      wait_for:
-        port: 8697
-        delay: 2
-
-    - name: 5.10 Revert to Snapshot using vmrun (Bypass API 404)
+    - name: 5. Revert to Snapshot (Bypassing API 404)
       become: true
       become_user: "{{ vm_admin_user }}"
-      # Matches the snapshot name you confirmed manually
-      command: "/usr/bin/vmrun -T ws revertToSnapshot {{ template_vmx }} 'Post Setup Snapshot'"
-      register: revert_result
+      command: "/usr/bin/vmrun -T ws revertToSnapshot {{ template_vmx }} '{{ snapshot_name }}'"
+     
 
-    - name: 5.11 Identify Latest Snapshot ID
-      set_fact:
-        # Grabs the last snapshot in the list (the most recent)
-        target_snapshot_id: "{{ snapshot_list.json[-1].id }}"
-      when: snapshot_list.json | length > 0
-
-    - name: 6. Revert Template to Most Recent Snapshot (Clean State)
-      uri:
-        url: "http://127.0.0.1:{{ vmrest_port }}/api/vms/{{ template_vm_id }}/snapshots/{{ target_snapshot_id }}"
-        method: PUT # PUT on a snapshot ID triggers a restore/revert
-        user: "{{ vmws_user }}"
-        password: "{{ vmws_pass }}"
-        force_basic_auth: yes
-        status_code: [200, 204]
-      when: target_snapshot_id is defined
-
-    
-
-    - name: 7. Start the VM (Headless)
+    # --- VM EXECUTION ---
+    - name: 6. Start the VM (Headless as vmadmin)
       become: true
       become_user: "{{ vm_admin_user }}"
       shell:
@@ -168,15 +104,7 @@
       failed_when: 
         - vm_start_cmd.rc != 0 
         - "'already running' not in vm_start_cmd.stderr"
+     
 
-    - name: 8. Verify VM is active in the hypervisor
-      become: true
-      become_user: "{{ vm_admin_user }}"
-      command: /usr/bin/vmrun list
-      register: running_list
-      until: "'win11-template.vmx' in running_list.stdout"
-      retries: 10
-      delay: 5
-
-    - name: 9. Enable lingering for vmadmin
-      command: "loginctl enable-linger vmadmin"
+    - name: 7. Enable lingering to prevent RHEL from killing the VM on logout
+      command: "loginctl enable-linger {{ vm_admin_user }}"
