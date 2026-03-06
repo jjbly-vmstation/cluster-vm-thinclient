@@ -96,20 +96,20 @@
         state: directory
 
 
-    - name: 6. Create VM via Direct API Call (Bypass Provider Limitation)
+    - name: 6. Create VM via Direct API Call (Corrected Endpoint)
       uri:
-        url: "http://127.0.0.1:{{ vmrest_port }}/api/vms/{{ template_vm_id }}/clone"
+        url: "http://127.0.0.1:{{ vmrest_port }}/api/vms" # Removed /{id}/clone
         method: POST
         user: "{{ vmws_user }}"
         password: "{{ vmws_pass }}"
         force_basic_auth: yes
         body_format: json
         headers:
-          # Change Content-Type to match the vendor-specific version
           Accept: "application/vnd.vmware.vmw.rest-v1+json"
-          Content-Type: "application/vnd.vmware.vmw.rest-v1+json" 
+          Content-Type: "application/vnd.vmware.vmw.rest-v1+json"
         body:
           name: "win11-production"
+          parentId: "{{ template_vm_id }}" # The ID goes here instead of the URL
           path: "/mnt/storage/vmware/win11-production"
           cloneType: "full"
         status_code: [201, 409]
