@@ -121,6 +121,18 @@
         state: absent
       loop: "{{ found_locks.files }}"
 
+    - name: 5.9.2 Force restart vmrest to refresh inventory
+      systemd:
+        name: vmrest
+        state: restarted
+      # Only restart if we actually found and deleted locks
+      when: found_locks.matched > 0
+
+    - name: 5.9.3 Wait for API to stabilize
+      wait_for:
+        port: 8697
+        delay: 2
+
     - name: 5.10 Get Snapshots for Template VM
       uri:
         url: "http://127.0.0.1:{{ vmrest_port }}/api/vms/{{ template_vm_id }}/snapshots"
