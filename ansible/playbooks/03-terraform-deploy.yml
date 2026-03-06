@@ -75,6 +75,16 @@
       set_fact:
         template_vm_id: "{{ (api_response.json | selectattr('path', 'equalto', template_local_vmx) | list | first).id }}"
 
+
+    - name: 5.5 Ensure Terraform Directory Ownership
+      file:
+        path: "{{ terraform_dir }}"
+        owner: "{{ vm_admin_user }}"
+        group: "{{ vm_admin_user }}"
+        recurse: yes
+        state: directory
+
+        
     - name: 6. Execute Terraform Deployment
       shell: |
         terraform init
