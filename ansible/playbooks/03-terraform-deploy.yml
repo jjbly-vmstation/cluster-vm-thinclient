@@ -96,7 +96,12 @@
         state: directory
 
 
-    - name: 6. Create VM via Direct API Call (Increased Timeout)
+    - name: 5.9 Clean up failed clone directory
+      file:
+        path: "/mnt/storage/vmware/win11-production/win11-production"
+        state: absent
+
+    - name: 6. Create VM via Direct API Call (Corrected Path)
       uri:
         url: "http://127.0.0.1:{{ vmrest_port }}/api/vms"
         method: POST
@@ -110,11 +115,11 @@
         body:
           name: "win11-production"
           parentId: "{{ template_vm_id }}"
-          path: "/mnt/storage/vmware/win11-production"
+          # Use the base directory so the API creates /win11-production/ inside it
+          path: "/mnt/storage/vmware" 
           cloneType: "full"
         status_code: [201, 409]
-        # Increase timeout to handle the large disk copy operation
-        timeout: 600 
+        timeout: 600
       register: clone_result
 
     - name: 6.1 Wait for Clone Operation to Complete
