@@ -141,9 +141,17 @@
       become: true
       become_user: vmadmin
       command: /usr/bin/vmrun -T ws start "/home/vmadmin/vmware/win11-production/win11-production.vmx" nogui
-      register: vm_start
-      # Ignore error if it's already running
+      register: vm_start_cmd
+      # Only fail if the error is NOT "already running"
       failed_when: 
-        - vm_start.rc != 0 
-        - "'is already running' not in vm_start.stderr"
-      changed_when: "'is already running' not in vm_start.stderr"
+        - vm_start_cmd.rc != 0 
+        - "'is already running' not in vm_start_cmd.stderr"
+
+    - name: 8. Verify VM is actually in the running list
+      become_user: vmadmin
+      command: /usr/bin/vmrun list
+      register: running_list
+      retries: 5
+      delay: 3
+      until: "'win11-production.vmx' in running_list.stdout"
+      failed_when: "'win11-production.vmx' not in running_list.stdout"
