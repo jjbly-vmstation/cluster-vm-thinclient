@@ -5,21 +5,24 @@
   vars_files:
     - "/opt/vmstation-org/cluster-setup/ansible/inventory/group_vars/compute_nodes.yml"
   vars:
-    # Manual Configuration Note:
+    project_root: "/home/vmadmin/vmstation-org/cluster-vm-thinclient"
+    terraform_dir: "{{ project_root }}/terraform"
+    template_local_vmx: "/mnt/storage/vmware/win11-template/win11-template.vmx"
+    vm_dest_vmx: "/mnt/storage/vmware/win11-production/win11-production.vmx"
+
+  tasks:
+    ###########################################################################
+    # MANUAL CONFIGURATION NOTES (DONE BY USER):
     # I had to manually add the location of the VM in the VMware Workstation 
     # GUI (logged in as vmadmin) to register the VM without errors. 
     # This populates the inventory.vmls file which the API requires.
 
-    project_root: "/home/vmadmin/vmstation-org/cluster-vm-thinclient"
-    terraform_dir: "{{ project_root }}/terraform"
-    
-    # Template and Production Paths
-    template_local_vmx: "/mnt/storage/vmware/win11-template/win11-template.vmx"
-    vm_dest_dir: "/mnt/storage/vmware/win11-production"
-    vm_dest_vmx: "{{ vm_dest_dir }}/win11-production.vmx"
+    # 1. Registered the VM in VMware Workstation GUI as vmadmin to populate inventory.
+    # 2. Created vmrest credentials manually via 'vmrest -C' as vmadmin.
+    #    Credentials stored in ~vmadmin/.vmrestCfg
+    ###########################################################################
 
-  tasks:
-    - name: 1. Ensure vmrest Systemd Service is Configured
+    - name: 1. Configure vmrest Systemd Service
       copy:
         dest: /etc/systemd/system/vmrest.service
         content: |
@@ -32,7 +35,7 @@
           Type=simple
           User={{ vm_admin_user }}
           Group={{ vm_admin_user }}
-          # dbus-run-session is required on RHEL 10 for the API to access the GUI-registered inventory
+          # dbus-run-session is required for vmrest to access the GUI inventory
           ExecStart=/usr/bin/dbus-run-session -- /usr/bin/vmrest -p {{ vmrest_port }} -i {{ vmrest_host }}
           Restart=always
           RestartSec=5
@@ -40,26 +43,20 @@
           [Install]
           WantedBy=multi-user.target
 
-    - name: 2. Set vmrest Credentials (Non-Interactive)
-      shell: |
-        (echo "{{ vmws_user }}"; echo "{{ vmws_pass }}"; echo "{{ vmws_pass }}") | /usr/bin/vmrest -C
-      become_user: "{{ vm_admin_user }}"
-      changed_when: false
-
-    - name: 3. Restart vmrest Service
+    - name: 2. Start and Enable vmrest Service
       systemd:
         name: vmrest
         state: restarted
         enabled: yes
         daemon_reload: yes
 
-    - name: 4. Wait for API Availability
+    - name: 3. Wait for API to Listen
       wait_for:
         port: "{{ vmrest_port }}"
         host: "127.0.0.1"
         timeout: 30
 
-    - name: 5. Query API for Template ID
+    - name: 4. Query API for Dynamic VM ID
       uri:
         url: "http://127.0.0.1:{{ vmrest_port }}/api/vms"
         method: GET
@@ -71,11 +68,11 @@
       delay: 5
       until: api_response.json | length > 0
 
-    - name: 6. Extract Specific Template ID
+    - name: 5. Extract Source ID for Template
       set_fact:
         template_vm_id: "{{ (api_response.json | selectattr('path', 'equalto', template_local_vmx) | list | first).id }}"
 
-    - name: 7. Run Terraform Deployment
+    - name: 6. Execute Terraform Deployment
       shell: |
         terraform init
         terraform apply -auto-approve \
@@ -85,12 +82,12 @@
         chdir: "{{ terraform_dir }}"
       become_user: "{{ vm_admin_user }}"
 
-    - name: 8. Configure 100% Uptime Service for Production VM
+    - name: 7. Create Uptime Service for New Production VM
       copy:
         dest: /etc/systemd/system/win11-production.service
         content: |
           [Unit]
-          Description=Windows 11 Production VM
+          Description=Windows 11 Production VM Uptime
           After=network.target vmware.service
           Requires=vmware.service
 
@@ -101,7 +98,7 @@
           User={{ vm_admin_user }}
           Restart=always
 
-    - name: 9. Ensure Production VM is Started
+    - name: 8. Ensure Production VM is Running
       systemd:
         name: win11-production
         state: started
