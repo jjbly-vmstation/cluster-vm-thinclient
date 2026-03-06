@@ -8,8 +8,11 @@
     project_root: "/home/vmadmin/vmstation-org/cluster-vm-thinclient"
     terraform_dir: "{{ project_root }}/terraform"
     template_local_vmx: "/mnt/storage/vmware/win11-template/win11-template.vmx"
-    vm_dest_vmx: "/mnt/storage/vmware/win11-production/win11-production.vmx"
-    vm_name: "win11-production"  # <--- Add this line
+    vm_name: "win11-template"  # <--- Add this line
+    template_path: "/mnt/storage/vmware/win11-template"
+    template_vmx: "{{ template_path }}/win11-template.vmx"
+    vm_admin_user: "vmadmin" # Fixed the missing variable
+
 
   tasks:
     ###########################################################################
@@ -95,9 +98,9 @@
         recurse: yes
         state: directory
 
-    - name: 5.7 Check if Production VM already exists
+    - name: 5.7 Check if Template VM already exists
       stat:
-        path: "/home/vmadmin/vmware/win11-production/win11-production.vmx"
+        path: "/mnt/storage/vmware/win11-template/win11-template.vmx"
       register: vm_exists
 
     - name: 5.8 Check if VM is currently running
@@ -105,53 +108,53 @@
       register: running_vms
       changed_when: false
 
-    - name: 5.9 Remove stale locks after a crash
+    - name: 5.9 Remove stale locks in template folder
       file:
         path: "{{ item }}"
         state: absent
       with_fileglob:
-        - "/home/vmadmin/vmware/win11-production/*.lck"
-      # Only delete locks if the file exists on disk but is NOT in the 'vmrun list'
-      when: 
-        - vm_exists.stat.exists
-        - "'win11-production.vmx' not in running_vms.stdout"
+        - "/mnt/storage/vmware/win11-template/*.lck"
 
-    - name: 6. Create VM (Only if it doesn't exist)
+    - name: 5.10 Get Snapshots for Template VM
       uri:
-        url: "http://127.0.0.1:{{ vmrest_port }}/api/vms"
-        method: POST
+        url: "http://127.0.0.1:{{ vmrest_port }}/api/vms/{{ template_vm_id }}/snapshots"
+        method: GET
         user: "{{ vmws_user }}"
         password: "{{ vmws_pass }}"
         force_basic_auth: yes
-        body_format: json
-        headers:
-          Accept: "application/vnd.vmware.vmw.rest-v1+json"
-          Content-Type: "application/vnd.vmware.vmw.rest-v1+json"
-        body:
-          name: "win11-production"
-          parentId: "{{ template_vm_id }}"
-          path: "/home/vmadmin/vmware" 
-          cloneType: "full"
-        status_code: [201]
-        timeout: 600
-      when: not vm_exists.stat.exists
-      register: clone_result
+      register: snapshot_list
 
-    - name: 7. Start the VM (Whether new or existing)
+    - name: 5.11 Identify Latest Snapshot ID
+      set_fact:
+        # Grabs the last snapshot in the list (the most recent)
+        target_snapshot_id: "{{ snapshot_list.json[-1].id }}"
+      when: snapshot_list.json | length > 0
+
+    - name: 6. Revert Template to Most Recent Snapshot (Clean State)
+      uri:
+        url: "http://127.0.0.1:{{ vmrest_port }}/api/vms/{{ template_vm_id }}/snapshots/{{ target_snapshot_id }}"
+        method: PUT # PUT on a snapshot ID triggers a restore/revert
+        user: "{{ vmws_user }}"
+        password: "{{ vmws_pass }}"
+        force_basic_auth: yes
+        status_code: [200, 204]
+      when: target_snapshot_id is defined
+
+    - name: 7. Start the Template VM (Headless)
       become: true
-      become_user: vmadmin
-      command: /usr/bin/vmrun -T ws start "/home/vmadmin/vmware/win11-production/win11-production.vmx" nogui
+      become_user: "{{ vm_admin_user }}"
+      command: "/usr/bin/vmrun -T ws start {{ template_vmx }} nogui"
       register: vm_start_cmd
-      # Only fail if the error is NOT "already running"
+      # Don't fail if it's already running, just move on
       failed_when: 
         - vm_start_cmd.rc != 0 
         - "'is already running' not in vm_start_cmd.stderr"
 
-    - name: 8. Verify VM is actually in the running list
-      become_user: vmadmin
+    - name: 8. Verify VM is active in the hypervisor
+      become: true
+      become_user: "{{ vm_admin_user }}"
       command: /usr/bin/vmrun list
       register: running_list
-      retries: 5
-      delay: 3
-      until: "'win11-production.vmx' in running_list.stdout"
-      failed_when: "'win11-production.vmx' not in running_list.stdout"
+      until: "'win11-template.vmx' in running_list.stdout"
+      retries: 10
+      delay: 5
