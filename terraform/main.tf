@@ -20,5 +20,4 @@ resource "vmworkstation_virtual_machine" "windows_vm" {
   sourceid     = var.sourceid 
   processors   = var.processors
   memory       = var.memory
-  clonetype    = "full"
 }

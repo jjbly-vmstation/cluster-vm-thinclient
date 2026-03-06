@@ -49,8 +49,3 @@ variable "dest_path" {
   type        = string 
 }
 
-variable "clonetype" {
-  description = "full or linked"
-  type        = string
-  default     = "full"
-}
