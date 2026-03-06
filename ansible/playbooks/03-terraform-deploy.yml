@@ -116,7 +116,7 @@
           name: "win11-production"
           parentId: "{{ template_vm_id }}"
           # Use the base directory so the API creates /win11-production/ inside it
-          path: "/mnt/storage/vmware" 
+          path: "/mnt/storage/vmware"
           cloneType: "full"
         status_code: [201, 409]
         timeout: 600
@@ -138,10 +138,14 @@
 
           [Service]
           Type=forking
-          ExecStart=/usr/bin/vmrun -T ws start "/mnt/storage/vmware/win11-production/win11-production/win11-production.vmx" nogui
-          ExecStop=/usr/bin/vmrun -T ws stop "/mnt/storage/vmware/win11-production/win11-production/win11-production.vmx" soft
-          User={{ vm_admin_user }}
-          Restart=always
+          # Ensure this path does NOT have the double 'win11-production'
+          ExecStart=/usr/bin/vmrun -T ws start "/mnt/storage/vmware/win11-production/win11-production.vmx" nogui
+          ExecStop=/usr/bin/vmrun -T ws stop "/mnt/storage/vmware/win11-production/win11-production.vmx" soft
+          Restart=on-failure
+          User=vmadmin
+
+          [Install]
+          WantedBy=multi-user.target
 
     - name: 8. Ensure Production VM is Running
       systemd:
