@@ -95,19 +95,26 @@
         recurse: yes
         state: directory
 
-    - name: 5.8 Remove stale locks after a crash
+    - name: 5.7 Check if Production VM already exists
+      stat:
+        path: "/home/vmadmin/vmware/win11-production/win11-production.vmx"
+      register: vm_exists
+
+    - name: 5.8 Check if VM is currently running
+      command: /usr/bin/vmrun list
+      register: running_vms
+      changed_when: false
+
+    - name: 5.9 Remove stale locks after a crash
       file:
         path: "{{ item }}"
         state: absent
       with_fileglob:
         - "/home/vmadmin/vmware/win11-production/*.lck"
-      when: vm_exists.stat.exists
-
-
-    - name: 5.9 Check if Production VM already exists
-      stat:
-        path: "/home/vmadmin/vmware/win11-production/win11-production.vmx"
-      register: vm_exists
+      # Only delete locks if the file exists on disk but is NOT in the 'vmrun list'
+      when: 
+        - vm_exists.stat.exists
+        - "'win11-production.vmx' not in running_vms.stdout"
 
     - name: 6. Create VM (Only if it doesn't exist)
       uri:
