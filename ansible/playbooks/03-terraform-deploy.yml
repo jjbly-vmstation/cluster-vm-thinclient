@@ -25,20 +25,6 @@
     # 2. Created vmrest credentials manually via 'vmrest -C' as vmadmin.
     #    Credentials stored in ~vmadmin/.vmrestCfg
     ###########################################################################
----
-
-- name: Phase 2 - Production Deployment
-  hosts: homelab
-  become: true
-  vars_files:
-    - "/opt/vmstation-org/cluster-setup/ansible/inventory/group_vars/compute_nodes.yml"
-  vars:
-    template_path: "/mnt/storage/vmware/win11-template"
-    template_vmx: "{{ template_path }}/win11-template.vmx"
-    vm_admin_user: "vmadmin"
-    snapshot_name: "Post Setup Snapshot"
-
-  tasks:
     # --- API SERVICE MANAGEMENT ---
     - name: 1. Configure vmrest Systemd Service
       copy:
@@ -61,7 +47,7 @@
 
           [Install]
           WantedBy=multi-user.target
-     
+    
 
     - name: 2. Start and Enable vmrest Service
       systemd:
@@ -69,7 +55,7 @@
         state: restarted
         enabled: yes
         daemon_reload: yes
-     
+    
 
     # --- CLEANUP & SNAPSHOT REVERT ---
     - name: 3. Find and Remove stale locks (Prevents "Oil Painting" Glitch)
@@ -78,20 +64,20 @@
         patterns: "*.lck"
         file_type: directory
       register: found_locks
-     
+    
 
     - name: 4. Delete found locks
       file:
         path: "{{ item.path }}"
         state: absent
       loop: "{{ found_locks.files }}"
-     
+    
 
     - name: 5. Revert to Snapshot (Bypassing API 404)
       become: true
       become_user: "{{ vm_admin_user }}"
       command: "/usr/bin/vmrun -T ws revertToSnapshot {{ template_vmx }} '{{ snapshot_name }}'"
-     
+    
 
     # --- VM EXECUTION ---
     - name: 6. Start the VM (Headless as vmadmin)
@@ -104,7 +90,7 @@
       failed_when: 
         - vm_start_cmd.rc != 0 
         - "'already running' not in vm_start_cmd.stderr"
-     
+    
 
     - name: 7. Enable lingering to prevent RHEL from killing the VM on logout
       command: "loginctl enable-linger {{ vm_admin_user }}"
