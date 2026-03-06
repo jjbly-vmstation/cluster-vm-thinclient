@@ -78,7 +78,7 @@
     - name: 5.4 Sync Terraform Files from Master to Homelab
       synchronize:
         # Relative path from /opt/vmstation-org/cluster-vm-thinclient/ansible
-        src: "../terraform/" 
+        src: "../../terraform/" 
         dest: "{{ terraform_dir }}/"
         recursive: yes
         delete: yes
@@ -98,7 +98,10 @@
     - name: 6. Execute Terraform Deployment
       shell: |
         terraform init
+        # We add -lock=false here just in case a previous crashed run 
+        # left a stale lock file on your homelab node
         terraform apply -auto-approve \
+          -lock=false \
           -var="vmws_pass={{ vmws_pass }}" \
           -var="sourceid={{ template_vm_id }}"
       args:
