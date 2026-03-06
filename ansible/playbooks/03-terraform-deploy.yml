@@ -9,6 +9,7 @@
     terraform_dir: "{{ project_root }}/terraform"
     template_local_vmx: "/mnt/storage/vmware/win11-template/win11-template.vmx"
     vm_dest_vmx: "/mnt/storage/vmware/win11-production/win11-production.vmx"
+    vm_name: "win11-production"  # <--- Add this line
 
   tasks:
     ###########################################################################
