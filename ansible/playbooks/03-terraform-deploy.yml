@@ -96,12 +96,12 @@
         state: directory
 
 
-    - name: 5.9 Clean up failed clone directory
+    - name: 5. Clean up existing production VM directory
       file:
-        path: "/mnt/storage/vmware/win11-production/win11-production"
+        path: "/mnt/storage/vmware/win11-production"
         state: absent
 
-    - name: 6. Create VM via Direct API Call (Corrected Path)
+    - name: 6. Create VM via Direct API Call
       uri:
         url: "http://127.0.0.1:{{ vmrest_port }}/api/vms"
         method: POST
@@ -115,41 +115,23 @@
         body:
           name: "win11-production"
           parentId: "{{ template_vm_id }}"
-          # Use the base directory so the API creates /win11-production/ inside it
-          path: "/mnt/storage/vmware"
+          path: "/mnt/storage/vmware" # API will create /mnt/storage/vmware/win11-production/
           cloneType: "full"
-        status_code: [201, 409]
+        status_code: [201]
         timeout: 600
       register: clone_result
 
-    - name: 6.1 Wait for Clone Operation to Complete
+    - name: 7. Wait for disk operations to settle
       pause:
-        seconds: 30
-      when: clone_result.status == 201
+        seconds: 10
 
-    - name: 7. Create Uptime Service for New Production VM
-      copy:
-        dest: /etc/systemd/system/win11-production.service
-        content: |
-          [Unit]
-          Description=Windows 11 Production VM Uptime
-          After=network.target vmware.service
-          Requires=vmware.service
-
-          [Service]
-          Type=forking
-          ExecStart=/usr/bin/vmrun -T ws start "/mnt/storage/vmware/win11-production/win11-production.vmx" nogui
-          ExecStop=/usr/bin/vmrun -T ws stop "/mnt/storage/vmware/win11-production/win11-production.vmx" soft
-          Restart=on-failure
-          User=vmadmin
-          Group=vmadmin
-
-          [Install]
-          WantedBy=multi-user.target
-
-    - name: 8. Ensure Production VM is Running
-      systemd:
-        name: win11-production
-        state: started
-        enabled: yes
-        daemon_reload: yes
+    - name: 8. Start the Production VM (On-Demand)
+      become: true
+      become_user: vmadmin
+      command: /usr/bin/vmrun -T ws start "/mnt/storage/vmware/win11-production/win11-production.vmx" nogui
+      register: vm_start
+      # We don't want it to fail if the VM is already running
+      failed_when: 
+        - vm_start.rc != 0 
+        - "'is already running' not in vm_start.stderr"
+      changed_when: "'is already running' not in vm_start.stderr"
