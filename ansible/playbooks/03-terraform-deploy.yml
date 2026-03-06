@@ -133,6 +133,10 @@
       delay: 5
       until: api_response.json | length > 0
 
+    - name: DEBUG - Show raw API response
+      debug:
+        var: api_response
+
     - name: 13. Extract Template VM ID
       set_fact:
         template_vm_id: "{{ api_response.json[0].id }}"
