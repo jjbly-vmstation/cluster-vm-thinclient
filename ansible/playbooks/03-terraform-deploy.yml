@@ -8,8 +8,7 @@
     project_root: "/home/vmadmin/vmstation-org/cluster-vm-thinclient"
     terraform_dir: "{{ project_root }}/terraform"
     
-    # Template Paths
-    template_nfs_dir: "/mnt/media/iso/win11e"
+    # Template Paths (Registered manually in GUI previously)
     template_local_dir: "/mnt/storage/vmware/win11-template"
     template_local_vmx: "{{ template_local_dir }}/win11-template.vmx"
     
@@ -18,110 +17,72 @@
     vm_dest_vmx: "{{ vm_dest_dir }}/win11-production.vmx"
 
   tasks:
-    - name: 1. Cleanup previous failed attempts and artifacts
+    ###########################################################################
+    # MANUAL PRE-REQUISITE NOTE:
+    # I had to manually add the location of the VM in VMware Workstation GUI 
+    # (logged in as vmadmin) to register the VM without errors before running 
+    # this automation. The REST API cannot "see" VMs that are not in the 
+    # inventory.vmls of the user running the service.
+    ###########################################################################
+
+    - name: 1. Ensure vmrest Systemd Service is Configured
+      copy:
+        dest: /etc/systemd/system/vmrest.service
+        content: |
+          [Unit]
+          Description=VMware Workstation REST API
+          After=network.target vmware.service
+          Requires=vmware.service
+
+          [Service]
+          Type=simple
+          User={{ vm_admin_user }}
+          Group={{ vm_admin_user }}
+          # dbus-run-session is required on RHEL 10 for the API to access the VM inventory
+          ExecStart=/usr/bin/dbus-run-session -- /usr/bin/vmrest -p {{ vmrest_port }} -i {{ vmrest_host }}
+          Restart=always
+          RestartSec=5
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: 2. Set vmrest Credentials (Non-Interactive)
       shell: |
-        rm -rf /mnt/storage/vmware/packer*
-        rm -rf "{{ template_local_dir }}"
-        rm -rf "{{ vm_dest_dir }}"
-      ignore_errors: true
+        (echo "{{ vmws_user }}"; echo "{{ vmws_pass }}"; echo "{{ vmws_pass }}") | /usr/bin/vmrest -C
+      become_user: "{{ vm_admin_user }}"
+      changed_when: false
 
-    - name: 2. Sync Terraform codebase
-      ansible.posix.synchronize:
-        src: "../../terraform/"
-        dest: "{{ terraform_dir }}/"
-        recursive: yes
-        delete: yes
+    - name: 3. Start and Enable vmrest Service
+      systemd:
+        name: vmrest
+        state: restarted
+        enabled: yes
+        daemon_reload: yes
 
-    - name: 3. Ensure local writable template directory exists
-      file:
-        path: "{{ template_local_dir }}"
-        state: directory
-        owner: vmadmin
-        group: vmadmin
-        mode: '0755'
-
-    - name: 4. Stage Packer template from read-only NFS
-      ansible.posix.synchronize:
-        src: "{{ template_nfs_dir }}/"
-        dest: "{{ template_local_dir }}/"
-      delegate_to: "{{ inventory_hostname }}"
-
-    - name: 5. Purge problematic keys and invalid comment syntax
-      shell: |
-        # Strip all identity keys to prevent duplicates or conflicts
-        sed -i '/(?i)^uuid\./d' "{{ template_local_vmx }}"
-        sed -i '/(?i)^vmci0\.id/d' "{{ template_local_vmx }}"
-        sed -i '/(?i)^ethernet0\.generatedAddress/d' "{{ template_local_vmx }}"
-        sed -i '/(?i)^msg\.autoanswer/d' "{{ template_local_vmx }}"
-        # Strip any existing C-style comments (//) that break the VMX parser
-        sed -i '/^\/\//d' "{{ template_local_vmx }}"
-        # Cleanup auxiliary files
-        rm -f "{{ template_local_dir }}"/*.log
-        rm -f "{{ template_local_dir }}"/*.vmxf
-        rm -f "{{ template_local_dir }}"/*.vmsd
-
-    - name: 6. Generate and Inject Fresh Hardware Identity
-      shell: |
-        raw_uuid=$(uuidgen)
-        part1=$(echo $raw_uuid | cut -c 1-2); part2=$(echo $raw_uuid | cut -c 3-4); part3=$(echo $raw_uuid | cut -c 5-6); part4=$(echo $raw_uuid | cut -c 7-8)
-        part5=$(echo $raw_uuid | cut -c 10-11); part6=$(echo $raw_uuid | cut -c 12-13); part7=$(echo $raw_uuid | cut -c 15-16); part8=$(echo $raw_uuid | cut -c 17-18)
-        part9=$(echo $raw_uuid | cut -c 20-21); part10=$(echo $raw_uuid | cut -c 22-23); part11=$(echo $raw_uuid | cut -c 25-26); part12=$(echo $raw_uuid | cut -c 27-28)
-        part13=$(echo $raw_uuid | cut -c 29-30); part14=$(echo $raw_uuid | cut -c 31-32); part15=$(echo $raw_uuid | cut -c 33-34); part16=$(echo $raw_uuid | cut -c 35-36)
-        formatted_uuid="$part1 $part2 $part3 $part4 $part5 $part6 $part7 $part8-$part9 $part10 $part11 $part12 $part13 $part14 $part15 $part16"
-        
-        # Use shell-style comments (#) for VMX compatibility
-        echo "# Hardware Identity Managed by Ansible" >> "{{ template_local_vmx }}"
-        echo "uuid.bios = \"$formatted_uuid\"" >> "{{ template_local_vmx }}"
-        echo "uuid.location = \"$formatted_uuid\"" >> "{{ template_local_vmx }}"
-        echo "msg.autoanswer = \"TRUE\"" >> "{{ template_local_vmx }}"
-        echo "uuid.action = \"create\"" >> "{{ template_local_vmx }}"
-
-    - name: 7. Fix Permissions and SELinux Labels
-      shell: |
-        chown -R vmadmin:vmadmin "{{ template_local_dir }}"
-        chmod -R 755 "{{ template_local_dir }}"
-        # Fix the unlabeled parent directory identified in your logs
-        semanage fcontext -a -t virt_content_t "/mnt/storage/vmware(/.*)?" || true
-        restorecon -Rv /mnt/storage/vmware
-
-    - name: 8. Native Registration via D-Bus session
-      shell: |
-        su - vmadmin -c 'dbus-run-session -- /usr/bin/vmrun -T ws list' | grep "{{ template_local_vmx }}" || \
-        su - vmadmin -c 'dbus-run-session -- /usr/bin/vmrun -T ws start "{{ template_local_vmx }}" nogui'
-        sleep 10
-        su - vmadmin -c 'dbus-run-session -- /usr/bin/vmrun -T ws stop "{{ template_local_vmx }}" hard'
-      args:
-        executable: /bin/bash
-
-    - name: 9. Start API service via D-Bus session
-      shell: |
-        pkill -9 vmrest || true
-        su - vmadmin -c 'nohup dbus-run-session -- /usr/bin/vmrest > /home/vmadmin/vmrest.log 2>&1 &'
-      args:
-        executable: /bin/bash
-
-    - name: 10. Wait for API to fully settle
+    - name: 4. Wait for VMware REST API to be Reachable
       wait_for:
-        port: 8697
-        delay: 5
+        port: "{{ vmrest_port }}"
+        host: "127.0.0.1"
+        timeout: 30
 
-    - name: 11. Query API for VM ID (With Retries)
+    - name: 5. Query API for Template VM ID
       uri:
-        url: "http://127.0.0.1:8697/api/vms"
+        url: "http://127.0.0.1:{{ vmrest_port }}/api/vms"
         method: GET
-        url_username: vmadmin
-        url_password: "{{ vmws_pass }}"
+        user: "{{ vmws_user }}"
+        password: "{{ vmws_pass }}"
         force_basic_auth: yes
+        status_code: 200
       register: api_response
       retries: 5
       delay: 5
       until: api_response.json | length > 0
 
-    - name: 12. Extract Template VM ID
+    - name: 6. Extract Template VM ID
       set_fact:
-        template_vm_id: "{{ api_response.json[0].id }}"
+        template_vm_id: "{{ (api_response.json | selectattr('path', 'equalto', template_local_vmx) | list | first).id }}"
 
-    - name: 13. Terraform Apply
+    - name: 7. Run Terraform Apply
       shell: |
         terraform init
         terraform apply -auto-approve \
@@ -129,31 +90,27 @@
           -var="sourceid={{ template_vm_id }}"
       args:
         chdir: "{{ terraform_dir }}"
-      become_user: vmadmin
+      become_user: "{{ vm_admin_user }}"
 
-    - name: 14. Configure 100% Uptime Service (Systemd)
-      copy:
-        dest: /etc/systemd/system/win11-production.service
-        content: |
-          [Unit]
-          Description=Windows 11 Production VM
-          After=network.target vmware.service
-          Requires=vmware.service
+    # - name: 8. Configure 100% Uptime Service for Production VM
+    #   copy:
+    #     dest: /etc/systemd/system/win11-production.service
+    #     content: |
+    #       [Unit]
+    #       Description=Windows 11 Production VM
+    #       After=network.target vmware.service
+    #       Requires=vmware.service
 
-          [Service]
-          Type=forking
-          ExecStart=/usr/bin/vmrun -T ws start "{{ vm_dest_vmx }}" nogui
-          ExecStop=/usr/bin/vmrun -T ws stop "{{ vm_dest_vmx }}" soft
-          Restart=always
-          RestartSec=30
-          User=vmadmin
+    #       [Service]
+    #       Type=forking
+    #       ExecStart=/usr/bin/vmrun -T ws start "{{ vm_dest_vmx }}" nogui
+    #       ExecStop=/usr/bin/vmrun -T ws stop "{{ vm_dest_vmx }}" soft
+    #       User={{ vm_admin_user }}
+    #       Restart=always
 
-          [Install]
-          WantedBy=multi-user.target
-
-    - name: 15. Enable and Start VM
+    - name: 9. Ensure Production VM is Started
       systemd:
         name: win11-production
-        enabled: true
         state: started
-        daemon_reload: true
+        enabled: yes
+        daemon_reload: yes
