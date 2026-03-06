@@ -33,10 +33,13 @@
 
           [Service]
           Type=simple
-          User={{ vm_admin_user }}
-          Group={{ vm_admin_user }}
-          # dbus-run-session is required for vmrest to access the GUI inventory
-          ExecStart=/usr/bin/dbus-run-session -- /usr/bin/vmrest -p {{ vmrest_port }} -i {{ vmrest_host }}
+          User=vmadmin
+          Group=vmadmin
+          # Ensure it looks in vmadmin's home for .vmrestCfg
+          WorkingDirectory=/home/vmadmin
+          Environment=HOME=/home/vmadmin
+          # Removed the -i flag. -p 8697 is sufficient.
+          ExecStart=/usr/bin/dbus-run-session -- /usr/bin/vmrest -p 8697
           Restart=always
           RestartSec=5
 
