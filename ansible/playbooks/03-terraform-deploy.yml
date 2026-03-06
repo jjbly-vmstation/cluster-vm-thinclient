@@ -77,12 +77,14 @@
 
     - name: 5.4 Sync Terraform Files from Master to Homelab
       synchronize:
-        src: "{{ project_root }}/terraform/"  # Source on Master Node
-        dest: "{{ terraform_dir }}/"          # Destination on Homelab
+        # Relative path from /opt/vmstation-org/cluster-vm-thinclient/ansible
+        src: "../terraform/" 
+        dest: "{{ terraform_dir }}/"
         recursive: yes
-        delete: yes                           # Keeps directories perfectly in sync
-      delegate_to: localhost                   # Run the rsync from Master
-
+        delete: yes
+        rsync_opts:
+          - "--chown=vmadmin:vmadmin"
+      delegate_to: localhost
 
     - name: 5.5 Ensure Terraform Directory Ownership
       file:
