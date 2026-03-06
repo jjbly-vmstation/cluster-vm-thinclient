@@ -75,6 +75,14 @@
       set_fact:
         template_vm_id: "{{ (api_response.json | selectattr('path', 'equalto', template_local_vmx) | list | first).id }}"
 
+    - name: 5.4 Sync Terraform Files from Master to Homelab
+      synchronize:
+        src: "{{ project_root }}/terraform/"  # Source on Master Node
+        dest: "{{ terraform_dir }}/"          # Destination on Homelab
+        recursive: yes
+        delete: yes                           # Keeps directories perfectly in sync
+      delegate_to: localhost                   # Run the rsync from Master
+
 
     - name: 5.5 Ensure Terraform Directory Ownership
       file:
@@ -84,7 +92,7 @@
         recurse: yes
         state: directory
 
-        
+
     - name: 6. Execute Terraform Deployment
       shell: |
         terraform init

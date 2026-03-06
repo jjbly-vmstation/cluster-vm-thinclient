@@ -48,3 +48,9 @@ variable "dest_path" {
   description = "Destination path for the new VMX file"
   type        = string 
 }
+
+variable "clonetype" {
+  description = "full or linked"
+  type        = string
+  default     = "full"
+}

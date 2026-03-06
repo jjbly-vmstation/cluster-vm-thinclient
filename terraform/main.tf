@@ -17,10 +17,8 @@ provider "vmworkstation" {
 resource "vmworkstation_virtual_machine" "windows_vm" {
   denomination = var.vm_name
   path         = var.dest_path
-  sourceid     = var.sourceid # This is your local template ID
+  sourceid     = var.sourceid 
   processors   = var.processors
   memory       = var.memory
-  
-  # This fixes the "parameter: operation" error
-  clonetype    = "full" 
+  clonetype    = "full"
 }
