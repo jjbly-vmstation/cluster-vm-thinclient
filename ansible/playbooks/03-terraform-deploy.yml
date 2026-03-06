@@ -138,11 +138,11 @@
 
           [Service]
           Type=forking
-          # Ensure this path does NOT have the double 'win11-production'
           ExecStart=/usr/bin/vmrun -T ws start "/mnt/storage/vmware/win11-production/win11-production.vmx" nogui
           ExecStop=/usr/bin/vmrun -T ws stop "/mnt/storage/vmware/win11-production/win11-production.vmx" soft
           Restart=on-failure
           User=vmadmin
+          Group=vmadmin
 
           [Install]
           WantedBy=multi-user.target
