@@ -105,8 +105,9 @@
         force_basic_auth: yes
         body_format: json
         headers:
+          # Change Content-Type to match the vendor-specific version
           Accept: "application/vnd.vmware.vmw.rest-v1+json"
-          Content-Type: "application/json"
+          Content-Type: "application/vnd.vmware.vmw.rest-v1+json" 
         body:
           name: "win11-production"
           path: "/mnt/storage/vmware/win11-production"
