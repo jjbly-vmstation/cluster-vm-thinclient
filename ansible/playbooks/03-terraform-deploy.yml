@@ -96,23 +96,25 @@
         state: directory
 
 
-    - name: 6. Create VM via Direct API Call (Corrected Endpoint)
+    - name: 6. Create VM via Direct API Call (Increased Timeout)
       uri:
-        url: "http://127.0.0.1:{{ vmrest_port }}/api/vms" 
+        url: "http://127.0.0.1:{{ vmrest_port }}/api/vms"
         method: POST
-        user: "{{ vmws_user }}" 
-        password: "{{ vmws_pass }}" 
-        force_basic_auth: yes 
-        body_format: json 
+        user: "{{ vmws_user }}"
+        password: "{{ vmws_pass }}"
+        force_basic_auth: yes
+        body_format: json
         headers:
-          Accept: "application/vnd.vmware.vmw.rest-v1+json" # 
+          Accept: "application/vnd.vmware.vmw.rest-v1+json"
           Content-Type: "application/vnd.vmware.vmw.rest-v1+json"
         body:
-          name: "win11-production" 
+          name: "win11-production"
           parentId: "{{ template_vm_id }}"
-          path: "/mnt/storage/vmware/win11-production" 
-          cloneType: "full" 
-        status_code: [201, 409] 
+          path: "/mnt/storage/vmware/win11-production"
+          cloneType: "full"
+        status_code: [201, 409]
+        # Increase timeout to handle the large disk copy operation
+        timeout: 600 
       register: clone_result
 
     - name: 6.1 Wait for Clone Operation to Complete
