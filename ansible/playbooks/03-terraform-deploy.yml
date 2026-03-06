@@ -133,8 +133,8 @@
 
           [Service]
           Type=forking
-          ExecStart=/usr/bin/vmrun -T ws start "{{ vm_dest_vmx }}" nogui
-          ExecStop=/usr/bin/vmrun -T ws stop "{{ vm_dest_vmx }}" soft
+          ExecStart=/usr/bin/vmrun -T ws start "/mnt/storage/vmware/win11-production/win11-production/win11-production.vmx" nogui
+          ExecStop=/usr/bin/vmrun -T ws stop "/mnt/storage/vmware/win11-production/win11-production/win11-production.vmx" soft
           User={{ vm_admin_user }}
           Restart=always
 
