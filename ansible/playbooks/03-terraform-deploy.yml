@@ -108,12 +108,18 @@
       register: running_vms
       changed_when: false
 
-    - name: 5.9 Remove stale locks in template folder
+    - name: 5.9 Find stale locks on remote RHEL host
+      find:
+        paths: "/mnt/storage/vmware/win11-template"
+        patterns: "*.lck"
+        file_type: directory
+      register: found_locks
+
+    - name: 5.9.1 Remove found locks
       file:
-        path: "{{ item }}"
+        path: "{{ item.path }}"
         state: absent
-      with_fileglob:
-        - "/mnt/storage/vmware/win11-template/*.lck"
+      loop: "{{ found_locks.files }}"
 
     - name: 5.10 Get Snapshots for Template VM
       uri:
@@ -140,13 +146,13 @@
         status_code: [200, 204]
       when: target_snapshot_id is defined
 
-    - name: 7. Start the VM as vmadmin with full environment
+    - name: 7. Start the VM as vmadmin (Full Login Shell)
       become: true
-      become_user: "{{ vm_admin_user }}"
-      # Use a login shell to ensure vmadmin's paths and permissions are loaded
-      shell: |
+      become_user: vmadmin
+      shell:
+        # Use executable to ensure bash loads vmadmin's profile/permissions
+        cmd: "/usr/bin/vmrun -T ws start '{{ template_vmx }}' nogui"
         executable: /bin/bash
-        cmd: vmrun -T ws start "{{ template_vmx }}" nogui
       register: vm_start_cmd
       failed_when: 
         - vm_start_cmd.rc != 0 
@@ -160,3 +166,6 @@
       until: "'win11-template.vmx' in running_list.stdout"
       retries: 10
       delay: 5
+
+    - name: 9. Enable lingering for vmadmin
+      command: "loginctl enable-linger vmadmin"
