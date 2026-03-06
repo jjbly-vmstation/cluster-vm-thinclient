@@ -55,73 +55,50 @@
         rm -f "{{ template_local_dir }}"/*.vmxf
         rm -f "{{ template_local_dir }}"/*.vmsd
 
-    - name: 6. Generate fresh UUIDs for the Template
+    - name: 6. Generate and Inject Fresh Hardware UUIDs
       shell: |
         raw_uuid=$(uuidgen)
-        # Format for VMX: 56 4d ... (16 bytes)
-        part1=$(echo $raw_uuid | cut -c 1-2)
-        part2=$(echo $raw_uuid | cut -c 3-4)
-        part3=$(echo $raw_uuid | cut -c 5-6)
-        part4=$(echo $raw_uuid | cut -c 7-8)
-        part5=$(echo $raw_uuid | cut -c 10-11)
-        part6=$(echo $raw_uuid | cut -c 12-13)
-        part7=$(echo $raw_uuid | cut -c 15-16)
-        part8=$(echo $raw_uuid | cut -c 17-18)
-        part9=$(echo $raw_uuid | cut -c 20-21)
-        part10=$(echo $raw_uuid | cut -c 22-23)
-        part11=$(echo $raw_uuid | cut -c 25-26)
-        part12=$(echo $raw_uuid | cut -c 27-28)
-        part13=$(echo $raw_uuid | cut -c 29-30)
-        part14=$(echo $raw_uuid | cut -c 31-32)
-        part15=$(echo $raw_uuid | cut -c 33-34)
-        part16=$(echo $raw_uuid | cut -c 35-36)
-        echo "$part1 $part2 $part3 $part4 $part5 $part6 $part7 $part8-$part9 $part10 $part11 $part12 $part13 $part14 $part15 $part16"
-      register: formatted_uuid
+        part1=$(echo $raw_uuid | cut -c 1-2); part2=$(echo $raw_uuid | cut -c 3-4); part3=$(echo $raw_uuid | cut -c 5-6); part4=$(echo $raw_uuid | cut -c 7-8)
+        part5=$(echo $raw_uuid | cut -c 10-11); part6=$(echo $raw_uuid | cut -c 12-13); part7=$(echo $raw_uuid | cut -c 15-16); part8=$(echo $raw_uuid | cut -c 17-18)
+        part9=$(echo $raw_uuid | cut -c 20-21); part10=$(echo $raw_uuid | cut -c 22-23); part11=$(echo $raw_uuid | cut -c 25-26); part12=$(echo $raw_uuid | cut -c 27-28)
+        part13=$(echo $raw_uuid | cut -c 29-30); part14=$(echo $raw_uuid | cut -c 31-32); part15=$(echo $raw_uuid | cut -c 33-34); part16=$(echo $raw_uuid | cut -c 35-36)
+        formatted_uuid="$part1 $part2 $part3 $part4 $part5 $part6 $part7 $part8-$part9 $part10 $part11 $part12 $part13 $part14 $part15 $part16"
+        
+        # Inject directly to avoid Ansible marker issues
+        echo "uuid.bios = \"$formatted_uuid\"" >> "{{ template_local_vmx }}"
+        echo "uuid.location = \"$formatted_uuid\"" >> "{{ template_local_vmx }}"
+        echo "msg.autoanswer = \"TRUE\"" >> "{{ template_local_vmx }}"
+        echo "uuid.action = \"create\"" >> "{{ template_local_vmx }}"
 
-    - name: 7. Inject hardware identity and automation flags
-      blockinfile:
-        path: "{{ template_local_vmx }}"
-        marker: "// {mark} ANSIBLE MANAGED HARDWARE"
-        block: |
-          uuid.bios = "{{ formatted_uuid.stdout }}"
-          uuid.location = "{{ formatted_uuid.stdout }}"
-          msg.autoanswer = "TRUE"
-          uuid.action = "create"
-
-    - name: 8. Fix ownership and SELinux contexts
-      file:
-        path: "{{ template_local_dir }}"
-        owner: vmadmin
-        group: vmadmin
-        recurse: yes
-        mode: '0755'
-        setype: virt_content_t
-
-    - name: 9. Forcefully write the Workstation inventory database
-      copy:
-        dest: "/home/vmadmin/.vmware/inventory.vmls"
-        content: |
-          .encoding = "UTF-8"
-          vmlist.index = "1"
-          vmlist.config.0.path = "{{ template_local_vmx }}"
-          vmlist.config.0.displayname = "win11-template"
-        owner: vmadmin
-        group: vmadmin
-        mode: '0600'
-
-    - name: 10. Restart API service via NATIVE login shell
+    - name: 7. Fix Permissions and SELinux (Including Parent)
       shell: |
-        pkill -9 vmrest || true
-        su - vmadmin -c 'nohup /usr/bin/vmrest > /home/vmadmin/vmrest.log 2>&1 &'
+        chown -R vmadmin:vmadmin "{{ template_local_dir }}"
+        chmod -R 755 "{{ template_local_dir }}"
+        semanage fcontext -a -t virt_content_t "/mnt/storage/vmware(/.*)?" || true
+        restorecon -Rv /mnt/storage/vmware
+
+    - name: 8. Native Registration via D-Bus session (The "Secret Sauce")
+      shell: |
+        su - vmadmin -c 'dbus-run-session -- /usr/bin/vmrun -T ws list' | grep "{{ template_local_vmx }}" || \
+        su - vmadmin -c 'dbus-run-session -- /usr/bin/vmrun -T ws start "{{ template_local_vmx }}" nogui'
+        sleep 5
+        su - vmadmin -c 'dbus-run-session -- /usr/bin/vmrun -T ws stop "{{ template_local_vmx }}" hard'
       args:
         executable: /bin/bash
 
-    - name: 11. Wait for API to fully settle
+    - name: 9. Restart API service via D-Bus session
+      shell: |
+        pkill -9 vmrest || true
+        su - vmadmin -c 'nohup dbus-run-session -- /usr/bin/vmrest > /home/vmadmin/vmrest.log 2>&1 &'
+      args:
+        executable: /bin/bash
+
+    - name: 10. Wait for API to fully settle
       wait_for:
         port: 8697
         delay: 5
 
-    - name: 12. Query API for VM ID (With Retries)
+    - name: 11. Query API for VM ID (With Retries)
       uri:
         url: "http://127.0.0.1:8697/api/vms"
         method: GET
@@ -133,15 +110,11 @@
       delay: 5
       until: api_response.json | length > 0
 
-    - name: DEBUG - Show raw API response
-      debug:
-        var: api_response
-
-    - name: 13. Extract Template VM ID
+    - name: 12. Extract Template VM ID
       set_fact:
         template_vm_id: "{{ api_response.json[0].id }}"
 
-    - name: 14. Terraform Apply
+    - name: 13. Terraform Apply
       shell: |
         terraform init
         terraform apply -auto-approve \
@@ -150,8 +123,8 @@
       args:
         chdir: "{{ terraform_dir }}"
       become_user: vmadmin
-
-    - name: 15. Configure 100% Uptime Service (Systemd)
+      
+    - name: 14. Configure Systemd and Backup
       copy:
         dest: /etc/systemd/system/win11-production.service
         content: |
@@ -171,7 +144,7 @@
           [Install]
           WantedBy=multi-user.target
 
-    - name: 16. Enable and Start VM
+    - name: 15. Enable and Start VM
       systemd:
         name: win11-production
         enabled: true
