@@ -96,12 +96,12 @@
         state: directory
 
 
-    - name: 5. Clean up existing production VM directory
-      file:
-        path: "/mnt/storage/vmware/win11-production"
-        state: absent
+    - name: 5.9 Check if Production VM already exists
+      stat:
+        path: "/home/vmadmin/vmware/win11-production/win11-production.vmx"
+      register: vm_exists
 
-    - name: 6. Create VM via Direct API Call
+    - name: 6. Create VM (Only if it doesn't exist)
       uri:
         url: "http://127.0.0.1:{{ vmrest_port }}/api/vms"
         method: POST
@@ -115,22 +115,19 @@
         body:
           name: "win11-production"
           parentId: "{{ template_vm_id }}"
-          path: "/mnt/storage/vmware" # API will create /mnt/storage/vmware/win11-production/
+          path: "/home/vmadmin/vmware" 
           cloneType: "full"
         status_code: [201]
         timeout: 600
+      when: not vm_exists.stat.exists
       register: clone_result
 
-    - name: 7. Wait for disk operations to settle
-      pause:
-        seconds: 10
-
-    - name: 8. Start the Production VM (On-Demand)
+    - name: 7. Start the VM (Whether new or existing)
       become: true
       become_user: vmadmin
-      command: /usr/bin/vmrun -T ws start "/mnt/storage/vmware/win11-production/win11-production.vmx" nogui
+      command: /usr/bin/vmrun -T ws start "/home/vmadmin/vmware/win11-production/win11-production.vmx" nogui
       register: vm_start
-      # We don't want it to fail if the VM is already running
+      # Ignore error if it's already running
       failed_when: 
         - vm_start.rc != 0 
         - "'is already running' not in vm_start.stderr"
