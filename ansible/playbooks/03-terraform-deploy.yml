@@ -95,18 +95,25 @@
         state: directory
 
 
-    - name: 6. Execute Terraform Deployment
-      shell: |
-        terraform init
-        # We add -lock=false here just in case a previous crashed run 
-        # left a stale lock file on your homelab node
-        terraform apply -auto-approve \
-          -lock=false \
-          -var="vmws_pass={{ vmws_pass }}" \
-          -var="sourceid={{ template_vm_id }}"
-      args:
-        chdir: "{{ terraform_dir }}"
-      become_user: "{{ vm_admin_user }}"
+    - name: 6. Create VM via Direct API Call (Bypass Provider Limitation)
+      uri:
+        url: "http://127.0.0.1:8697/api/vms/{{ template_vm_id }}/clone"
+        method: POST
+        user: "{{ vmws_user }}"
+        password: "{{ vmws_pass }}"
+        force_basic_auth: yes
+        body_format: json
+        body:
+          name: "{{ vm_name }}"
+          path: "/mnt/storage/vmware/win11-production"
+          cloneType: "full"
+        status_code: [201, 409] # 409 means it already exists
+      register: clone_result
+
+    - name: 6.1 Wait for Clone Operation to Complete
+      pause:
+        seconds: 30
+      when: clone_result.status == 201
 
     - name: 7. Create Uptime Service for New Production VM
       copy:
