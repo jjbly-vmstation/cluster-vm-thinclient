@@ -5,7 +5,7 @@
     # --- CONNECTION (NATIVE OPENSSH) ---
     ansible_connection: ssh
     ansible_shell_type: powershell
-    ansible_user: ansible_svc@vmstation.local
+    ansible_user: 'VMSTATION\ansible_svc'
     ansible_ssh_common_args: '-o ProxyCommand=none'
     
     # --- PATHS (R430 LOCAL & NFS) ---
