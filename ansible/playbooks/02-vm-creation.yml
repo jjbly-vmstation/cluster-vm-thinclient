@@ -1,48 +1,47 @@
 - name: Build and Sync Windows 11 Golden Image
   hosts: wsdc-homelab
   vars:
-    # --- CONNECTION SETTINGS (KERBEROS SSO) ---
+    # --- CONNECTION (KERBEROS SSO) ---
     ansible_user: Administrator@VMSTATION.LOCAL
     ansible_connection: winrm
     ansible_winrm_transport: kerberos
+    ansible_port: 5985
+    ansible_winrm_scheme: http
     ansible_winrm_server_cert_validation: ignore
     ansible_winrm_kerberos_delegation: true
-    
-    # --- PATHS ---
+
+    # --- PATHS (R430 LOCAL & NFS) ---
     packer_dir: "C:\\vmstation-org\\cluster-vm-thinclient\\packer"
     local_output: "F:\\Hyper-V\\Templates\\win11-template"
     nfs_output: "Z:\\iso\\win11e"
-    # Note: Packer outputs to a subfolder by default
+    # Note: Packer's Hyper-V output structure
     local_vhdx: "F:\\Hyper-V\\Templates\\win11-template\\win11-template\\Virtual Hard Disks\\win11-template.vhdx"
-    ansible_port: 5985
-    ansible_winrm_scheme: http
 
   tasks:
-    - name: 1. Clean previous local build
-      ansible.windows.win_file:
-        path: "{{ local_output }}"
-        state: absent
+    - name: 1. Verify Authentication
+      ansible.windows.win_whoami:
+      register: whoami_results
 
-    - name: 2. Execute Packer Build
+    - name: 3. Execute Packer Build
       ansible.windows.win_shell: |
         packer build -force -var "vm_password={{ secrets.win_template_password }}" win11.pkr.hcl
       args:
         chdir: "{{ packer_dir }}"
+      register: packer_result
 
-    - name: 3. Ensure NFS destination exists
+    - name: 4. Ensure NFS destination exists (Z drive)
       ansible.windows.win_file:
         path: "{{ nfs_output }}"
         state: directory
 
-    - name: 4. Copy Golden Image to NFS (Z drive)
+    - name: 5. Copy VHDX to NFS for Terraform
       ansible.windows.win_copy:
         src: "{{ local_vhdx }}"
         dest: "{{ nfs_output }}\\win11-base.vhdx"
         remote_src: yes
-      register: copy_result
 
-    - name: 5. Verify file exists on NFS
-      ansible.windows.win_stat:
-        path: "{{ nfs_output }}\\win11-base.vhdx"
-      register: nfs_stat
-      failed_when: not nfs_stat.stat.exists
+    - name: 6. Cleanup local build artifacts
+      ansible.windows.win_file:
+        path: "{{ local_output }}"
+        state: absent
+      when: packer_result.rc == 0
