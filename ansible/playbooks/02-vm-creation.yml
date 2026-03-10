@@ -1,107 +1,38 @@
-- name: Build Windows 11 Golden Image for thinclient with Packer
-  hosts: homelab
-  become: true
-  vars_files:
-    - "/opt/vmstation-org/cluster-setup/ansible/inventory/group_vars/compute_nodes.yml"
+- name: Build and Sync Windows 11 Golden Image
+  hosts: wsdc-homelab
   vars:
-    packer_dir: "/home/vmadmin/vmstation-org/cluster-vm-thinclient/packer"
-    iso_path: "/home/vmadmin/iso/en-us_windows_11_business_editions_version_25h2_updated_feb_2026_x64_dvd_9271bf68.iso"
+    packer_dir: "C:\\vmstation-org\\cluster-vm-thinclient\\packer"
+    local_output: "F:\\Hyper-V\\Templates\\win11-template"
+    nfs_output: "Z:\\iso\\win11e"
+    # Ensure this matches the VHDX path created by Packer
+    local_vhdx: "F:\\Hyper-V\\Templates\\win11-template\\Virtual Hard Disks\\win11-template.vhdx"
 
   tasks:
-    - name: Ensure Packer is installed
-      shell: |
-        dnf config-manager --add-repo https://rpm.releases.hashicorp.com/RHEL/hashicorp.repo
-        dnf install -y packer
-      args:
-        creates: /usr/bin/packer
-
-    - name: Create packer directory
-      file:
-        path: "{{ packer_dir }}"
-        state: directory
-        owner: vmadmin
-        group: vmadmin
-
-    - name: Clean up previous build directory
-      file:
-        path: "/mnt/storage/vmware/win11-template"
+    - name: 1. Clean previous local build
+      ansible.windows.win_file:
+        path: "{{ local_output }}"
         state: absent
-      become: true
 
-    - name: Re-create clean build directory
-      file:
-        path: "/mnt/storage/vmware/win11-template"
-        state: directory
-        owner: vmadmin
-        group: vmadmin
-        mode: '0755'
-      become: true
-
-    - name: Generate autounattend.xml from template
-      template:
-        src: "../../packer/autounattend.xml.j2"
-        dest: "{{ packer_dir }}/autounattend.xml"
-        owner: vmadmin
-        group: vmadmin
-        mode: '0600'
-
-    - name: Copy Packer template and scripts
-      copy:
-        src: "{{ item }}"
-        dest: "{{ packer_dir }}/"
-        owner: vmadmin
-        group: vmadmin
-      loop:
-        - "../../packer/win11.pkr.hcl"
-        - "../../packer/masgrave.ps1"
-        - "../../packer/office_config.xml"
-        - "../../packer/install_office.ps1"
-
-    - name: Verify ISO exists
-      stat:
-        path: "{{ iso_path }}"
-      register: iso_check
-      failed_when: not iso_check.stat.exists
-
-    - name: Install Packer VMware plugin
-      shell: packer plugins install github.com/hashicorp/vmware
-      become_user: vmadmin
-      args:
-        creates: "/home/vmadmin/.config/packer/plugins/github.com/hashicorp/vmware"
-    
-    
-    - name: Ensure VMware Virtual Networks are configured and running
-      become: true
-      block:
-        - name: Start VMware network services
-          command: /usr/bin/vmware-networks --start
-          register: vmware_net_start
-          changed_when: "'Started' in vmware_net_start.stdout"
-          failed_when: false
-
-    - name: Ensure VMware services are enabled and started via systemd
-      systemd:
-        name: "{{ item }}"
-        enabled: true
-        state: started
-      loop:
-        - vmware
-        - vmware-USBArbitrator
-
-    - name: Run Packer build
-      shell: |
-        export PACKER_LOG=1
-        export TMPDIR=/mnt/storage/vmware/
-        packer build -force -var "vm_password={{ vmws_pass }}" win11.pkr.hcl 2>&1 | tee /mnt/storage/vmware/packer-win11-build.log
+    - name: 2. Execute Packer Build
+      ansible.windows.win_shell: |
+        packer build -force -var "vm_password={{ secrets.win_template_password }}" win11.pkr.hcl
       args:
         chdir: "{{ packer_dir }}"
-      become_user: vmadmin
-      register: packer_build
-      failed_when: packer_build.rc != 0
 
-    - name: Clean up answer file
-      file:
-        path: "{{ packer_dir }}/autounattend.xml"
-        state: absent
+    - name: 3. Ensure NFS destination exists
+      ansible.windows.win_file:
+        path: "{{ nfs_output }}"
+        state: directory
 
-  # manually moved the generated VMDK and OVF to the correct location for use with Terraform, since Packer's VMware builder doesn't support outputting directly to a read only media/iso directory
+    - name: 4. Copy Golden Image to NFS (Z drive)
+      ansible.windows.win_copy:
+        src: "{{ local_vhdx }}"
+        dest: "{{ nfs_output }}\\win11-base.vhdx"
+        remote_src: yes
+      register: copy_result
+
+    - name: 5. Verify file exists on NFS
+      ansible.windows.win_stat:
+        path: "{{ nfs_output }}\\win11-base.vhdx"
+      register: nfs_stat
+      failed_when: not nfs_stat.stat.exists

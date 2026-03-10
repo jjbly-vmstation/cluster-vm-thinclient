@@ -1,8 +1,8 @@
 packer {
   required_plugins {
-    vmware = {
-      version = ">= 1.0.0"
-      source  = "github.com/hashicorp/vmware"
+    hyperv = {
+      version = ">= 1.1.0"
+      source  = "github.com/hashicorp/hyperv"
     }
   }
 }
@@ -12,88 +12,54 @@ variable "vm_password" {
   sensitive = true
 }
 
-source "vmware-iso" "windows_11" {
-  iso_url           = "/home/vmadmin/iso/en-us_windows_11_business_editions_version_25h2_updated_feb_2026_x64_dvd_9271bf68.iso"
-  iso_checksum      = "none"   # Use "sha256:..." for production
-  guest_os_type     = "windows11-64"
-  vm_name           = "win11-template"
-  output_directory  = "/mnt/storage/vmware/win11-template"
-
-  # Boot order: wait 3s, then press space to boot from CD
-  boot_wait         = "3s"
-  boot_command = [
-    "<spacebar>",
-    "<wait2>",
-    "<spacebar>",
-    "<wait2>",
-    "<spacebar>"
-  ]
-
-  vnc_bind_address  = "0.0.0.0"
-  vnc_port_min      = 5900
-  vnc_port_max      = 5900
-  vnc_disable_password = true   # No password required for VNC
+source "hyperv-iso" "win11-enterprise" {
+  # Path to your ISO on the NFS share
+  iso_url               = "Z:/iso/en-us_windows_11_business_editions_version_25h2_updated_feb_2026_x64_dvd_9271bf68.iso"
+  iso_checksum          = "none"
   
-  disk_type_id      = "0"
-  cpus              = 4
-  memory            = 12288
-  disk_size         = 100 * 1024   # 100 GB
-  disk_adapter_type = "nvme"
-  cdrom_adapter_type= "sata"
-  headless          = true        # Set false to see the console (debug)
+  # Generation 2 is required for UEFI/Secure Boot in Win 11
+  generation            = 2
+  enable_secure_boot    = true
+  enable_vtpm           = true
+  
+  vm_name               = "win11-template"
+  # Local high-speed output directory
+  output_directory      = "F:/Hyper-V/Templates/win11-template"
+  
+  cpu                   = 4
+  memory                = 12288
+  disk_size             = 130048 # 127 GB
+  
+  # Matches your internal NAT switch for the 192.168.128.x network
+  switch_name           = "Internal-NAT-Switch"
+  
+  boot_wait             = "3s"
+  boot_command          = ["<spacebar><wait><spacebar>"]
 
-  network_adapter_type = "e1000e"
   cd_files = [
     "./autounattend.xml",
-    "./packer_cache/office/*"
+    "./install_office.ps1",
+    "./office_config.xml",
+    "./masgrave.ps1"
   ]
-  cd_label = "AUTOMATION"
   
-  
-  
-  vmx_data = {
-    "firmware"                = "efi"
-    "uefi.secureBoot.enabled" = "TRUE"
-    "managedVM.autoAddVTPM"   = "software"
-    "bios.bootOrder"          = "hdd,cdrom"
-    # NEW: Enable USB Tablet for absolute mouse tracking in VNC
-    "usb.present"             = "TRUE"
-    "mouse.vusb.enable"       = "TRUE"
-  }
-  vmx_data_post = {
-    "bios.bootOrder" = "hdd,cdrom"
-  }
+  communicator          = "winrm"
+  winrm_username        = "Administrator"
+  winrm_password        = var.vm_password
+  winrm_timeout         = "12h"
+  winrm_use_ssl         = false
+  winrm_insecure        = true
 
-  # WinRM communicator – Windows will be configured to accept WinRM in autounattend
-  communicator       = "winrm"
-  winrm_username     = "Administrator"
-  winrm_password     = var.vm_password
-  winrm_timeout      = "30m"
-  winrm_use_ssl      = false
-  winrm_insecure     = true
-
-  # Shutdown command will be executed via WinRM after provisioning
-  shutdown_command = "C:\\Windows\\System32\\Sysprep\\sysprep.exe /generalize /mode:vm /oobe /shutdown /quiet"
-  shutdown_timeout = "45m" # account for office download
+  shutdown_command      = "C:\\Windows\\System32\\Sysprep\\sysprep.exe /generalize /mode:vm /oobe /shutdown /quiet"
 }
 
 build {
-  sources = ["source.vmware-iso.windows_11"]
+  sources = ["source.hyperv-iso.win11-enterprise"]
 
-  # 1. Upload the Office Configuration
-  provisioner "file" {
-    source      = "./office_config.xml"
-    destination = "C:/Windows/Temp/office_config.xml"
-  }
-
-  # 2. Run the Office Installation
   provisioner "powershell" {
-    script = "./install_office.ps1"
+    scripts = [
+      "./install_office.ps1",
+      "./masgrave.ps1"
+    ]
   }
-
-  # 3. Run the Activation (Windows + Office)
-  provisioner "powershell" {
-    script = "./masgrave.ps1"
-  }
-
 }
