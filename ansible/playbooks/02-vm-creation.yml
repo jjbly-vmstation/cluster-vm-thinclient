@@ -1,12 +1,20 @@
 - name: Build and Sync Windows 11 Golden Image
   hosts: wsdc-homelab
   vars:
+    # --- CONNECTION SETTINGS (KERBEROS SSO) ---
+    ansible_user: Administrator@VMSTATION.LOCAL
+    ansible_connection: winrm
+    ansible_winrm_transport: kerberos
+    ansible_winrm_server_cert_validation: ignore
+    ansible_winrm_kerberos_delegation: true
+    
+    # --- PATHS ---
     packer_dir: "C:\\vmstation-org\\cluster-vm-thinclient\\packer"
     local_output: "F:\\Hyper-V\\Templates\\win11-template"
     nfs_output: "Z:\\iso\\win11e"
-    # Ensure this matches the VHDX path created by Packer
-    local_vhdx: "F:\\Hyper-V\\Templates\\win11-template\\Virtual Hard Disks\\win11-template.vhdx"
-
+    # Note: Packer outputs to a subfolder by default
+    local_vhdx: "F:\\Hyper-V\\Templates\\win11-template\\win11-template\\Virtual Hard Disks\\win11-template.vhdx"
+    
   tasks:
     - name: 1. Clean previous local build
       ansible.windows.win_file:
