@@ -13,7 +13,7 @@
     local_output: "F:\\Hyper-V\\Templates\\win11-template"
     nfs_output: "Z:\\iso\\win11e"
     local_vhdx: "F:\\Hyper-V\\Templates\\win11-template\\win11-template\\Virtual Hard Disks\\win11-template.vhdx"
-
+    build_password: "TempBuildPassword123!" # Add this
   tasks:
     - name: 1. Verify Authentication
       ansible.windows.win_whoami:
@@ -21,7 +21,7 @@
 
     - name: 3. Execute Packer Build
       ansible.windows.win_shell: |
-        packer build -force -var "vm_password={{ secrets.win_template_password }}" win11.pkr.hcl
+        packer build -force -var "vm_password={{ build_password }}" win11.pkr.hcl
       args:
         chdir: "{{ packer_dir }}"
       register: packer_result
