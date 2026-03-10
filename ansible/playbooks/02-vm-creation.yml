@@ -14,7 +14,9 @@
     nfs_output: "Z:\\iso\\win11e"
     # Note: Packer outputs to a subfolder by default
     local_vhdx: "F:\\Hyper-V\\Templates\\win11-template\\win11-template\\Virtual Hard Disks\\win11-template.vhdx"
-    
+    ansible_port: 5985
+    ansible_winrm_scheme: http
+
   tasks:
     - name: 1. Clean previous local build
       ansible.windows.win_file:
