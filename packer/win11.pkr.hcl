@@ -20,8 +20,7 @@ source "hyperv-iso" "win11-enterprise" {
   # Generation 2 is required for UEFI/Secure Boot in Win 11
   generation            = 2
   enable_secure_boot    = true
-  enable_vtpm           = true
-  
+  enable_tpm = true  
   vm_name               = "win11-template"
   # Local high-speed output directory
   output_directory      = "F:/Hyper-V/Templates/win11-template"
