@@ -38,12 +38,11 @@
           throw "Golden VHDX not found at Z:\iso\win11e\win11-base.vhdx - check NFS mount"
         }
 
-    - name: 5. Terraform Init
-      ansible.windows.win_shell: |
-        C:\Terraform\terraform.exe init
-      args:
-        chdir: "{{ terraform_dir }}"
-      register: tf_init
+    - name: 5. Copy VHDX to staging location for Terraform
+      ansible.windows.win_copy:
+        src: "F:\\Hyper-V\\Templates\\win11-template\\Virtual Hard Disks\\win11-template.vhdx"
+        dest: "F:\\Hyper-V\\Golden\\win11-base.vhdx"
+        remote_src: yes
 
     - name: 6. Terraform Plan
       ansible.windows.win_shell: |
