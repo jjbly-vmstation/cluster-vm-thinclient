@@ -13,27 +13,21 @@ variable "vm_password" {
 }
 
 source "hyperv-iso" "win11-enterprise" {
-  # Path to your ISO on the NFS share
-  iso_url = "F:/Hyper-V/Virtual Machines/en-us_windows_11_business_editions_version_25h2_updated_feb_2026_x64_dvd_9271bf68.iso"
+  iso_url               = "F:/Hyper-V/Virtual Machines/en-us_windows_11_business_editions_version_25h2_updated_feb_2026_x64_dvd_9271bf68.iso"
   iso_checksum          = "none"
-  
-  # Generation 2 is required for UEFI/Secure Boot in Win 11
   generation            = 2
   enable_secure_boot    = true
-  enable_tpm            = true  
+  secure_boot_template  = "MicrosoftUEFICertificateAuthority"
+  enable_tpm            = true
   vm_name               = "win11-template"
-  # Local high-speed output directory
   output_directory      = "F:/Hyper-V/Templates/win11-template"
-  
-  cpus                   = 4
+  cpus                  = 4
   memory                = 12288
-  disk_size             = 130048 # 127 GB
-  
-  # Matches your internal NAT switch for the 192.168.128.x network
+  disk_size             = 130048
   switch_name           = "Internal-NAT-Switch"
-  
-  boot_wait             = "3s"
-  boot_command          = ["<spacebar><wait><spacebar>"]
+  boot_wait             = "10s"
+  boot_command          = []
+
 
   cd_files = [
     "./autounattend.xml",
