@@ -45,10 +45,11 @@
         state: directory
 
     - name: 5. Copy VHDX to staging location for Terraform
-      ansible.windows.win_copy:
-        src: "F:\\Hyper-V\\Templates\\win11-template\\Virtual Hard Disks\\win11-template.vhdx"
-        dest: "F:\\Hyper-V\\Golden\\win11-base.vhdx"
-        remote_src: yes
+      ansible.windows.win_shell: |
+        robocopy "F:\Hyper-V\Templates\win11-template\Virtual Hard Disks" "F:\Hyper-V\Golden" "win11-template.vhdx" /J /NP
+        Rename-Item "F:\Hyper-V\Golden\win11-template.vhdx" "win11-base.vhdx" -ErrorAction SilentlyContinue
+      args:
+        creates: "F:\\Hyper-V\\Golden\\win11-base.vhdx"
 
     - name: 6. Terraform Plan
       ansible.windows.win_shell: |
