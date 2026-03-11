@@ -92,10 +92,6 @@
               -MemoryMinimumBytes 2GB `
               -MemoryMaximumBytes 16GB
 
-        Set-VMFirmware -VMName $vmName `
-                      -EnableSecureBoot On `
-                      -SecureBootTemplate MicrosoftWindows
-
         Start-VM -Name $vmName
         Write-Host "VM $vmName created and started successfully"
 
