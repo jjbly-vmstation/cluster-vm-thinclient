@@ -69,18 +69,22 @@
         $ErrorActionPreference = "Stop"
         $vmName = "{{ vm_name }}"
         $vhdxPath = "F:\Hyper-V\Virtual Hard Disks\$vmName\$vmName.vhdx"
+        $vmPath = "F:\Hyper-V\Virtual Machines\$vmName"
         $switch = "Broadcom NetXtreme Gigabit Ethernet #2 - Virtual Switch"
 
-        # Verify VHDX exists before trying
         if (-not (Test-Path $vhdxPath)) {
           throw "VHDX not found at $vhdxPath"
         }
+
+        # Create VM config directory
+        New-Item -ItemType Directory -Force -Path $vmPath
 
         New-VM -Name $vmName `
               -Generation 2 `
               -MemoryStartupBytes 4GB `
               -VHDPath $vhdxPath `
-              -SwitchName $switch
+              -SwitchName $switch `
+              -Path $vmPath
 
         Set-VM -Name $vmName `
               -ProcessorCount 4 `
@@ -94,7 +98,6 @@
 
         Start-VM -Name $vmName
         Write-Host "VM $vmName created and started successfully"
-      register: vm_create
 
     - name: 7. Verify VM is running
       ansible.windows.win_shell: |
