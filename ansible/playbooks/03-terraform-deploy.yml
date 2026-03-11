@@ -7,8 +7,9 @@
     ansible_shell_type: powershell
     ansible_user: 'VMSTATION\ansible_svc'
     ansible_ssh_common_args: '-o ProxyCommand=none'
-    terraform_dir: "C:\\vmstation-org\\cluster-vm-thinclient\\terraform"
     nfs_output: "\\\\192.168.4.61\\srv\\media\\iso\\win11e"
+    terraform_dir: "C:\\home\\vmadmin\\vmstation-org\\cluster-vm-thinclient\\terraform"
+    vm_name: "win11-production"
   vars_files:
     - /opt/vmstation-org/cluster-vm-thinclient/ansible/group_vars/all.yml
 
