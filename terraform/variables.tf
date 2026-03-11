@@ -1,51 +1,40 @@
-variable "vmws_url" { 
-  description = "VMware Workstation API URL"
+variable "hyperv_host" {
+  description = "IP address of the Hyper-V host (R430)"
   type        = string
-  default     = "http://127.0.0.1:8697/api" 
+  default     = "192.168.4.62"
 }
 
-variable "vmws_user" { 
-  description = "VMware Workstation API User"
+variable "hyperv_user" {
+  description = "Hyper-V admin user (domain\\user format)"
   type        = string
-  default     = "vmadmin" 
+  default     = "VMSTATION\\ansible_svc"
 }
 
-variable "vmws_pass" { 
-  description = "VMware Workstation API Password"
+variable "hyperv_password" {
+  description = "Hyper-V admin password"
   type        = string
-  sensitive   = true 
+  sensitive   = true
 }
 
-variable "vm_name" { 
-  description = "Name of the Virtual Machine"
-  type        = string 
+variable "vm_name" {
+  description = "Name of the VM to create"
+  type        = string
 }
 
-variable "vm_description" { 
-  description = "Description of the Virtual Machine"
-  type        = string 
-  default     = "Enterprise - Massgrave Activated"
-}
-
-variable "processors" { 
+variable "processors" {
   description = "Number of vCPUs"
   type        = number
   default     = 4
 }
 
-variable "memory" { 
-  description = "Memory in MB"
+variable "memory_startup_mb" {
+  description = "Startup RAM in MB"
   type        = number
-  default     = 12288
+  default     = 4096
 }
 
-variable "sourceid" { 
-  description = "Path to the Packer-generated VMX template"
-  type        = string 
+variable "memory_max_mb" {
+  description = "Maximum RAM in MB"
+  type        = number
+  default     = 16384
 }
-
-variable "dest_path" { 
-  description = "Destination path for the new VMX file"
-  type        = string 
-}
-

@@ -8,39 +8,53 @@ terraform {
 }
 
 provider "hyperv" {
-  user            = "Administrator@VMSTATION.LOCAL"
-  # Since you have a Kerberos ticket, you can often omit the password 
-  # depending on your shell's environment
-  https           = false
-  insecure        = true
-  use_ntlm        = false
-  host            = "192.168.4.62"
-  port            = 5985
+  user     = var.hyperv_user
+  password = var.hyperv_password
+  host     = var.hyperv_host
+  port     = 5985
+  https    = false
+  insecure = true
+  use_ntlm = true
 }
 
-resource "hyperv_machine_instance" "productivity_vm" {
-  name                   = "productivity-vm"
-  generation             = 2
-  processor_count        = 4
-  
-  # Set to false to allow memory to grow/shrink
-  static_memory          = false 
-  
-  # Minimum RAM (e.g., 2GB)
-  memory_startup_bytes   = 2147483648 
-  
-  # Maximum RAM (16GB)
-  memory_maximum_bytes   = 17179869184 
-  
-  # Memory Buffer (percentage to keep available)
-  memory_buffer          = 20
+# Copy the golden VHDX from NFS to the F: RAID10 drive for this VM
+resource "hyperv_vhd" "vm_disk" {
+  path   = "F:\\Hyper-V\\Virtual Hard Disks\\${var.vm_name}\\${var.vm_name}.vhdx"
+  source = "Z:\\iso\\win11e\\win11-base.vhdx"
+}
 
+resource "hyperv_machine_instance" "vm" {
+  name            = var.vm_name
+  generation      = 2
+  processor_count = var.processors
+
+  # Dynamic memory
+  static_memory        = false
+  memory_startup_bytes = var.memory_startup_mb * 1024 * 1024
+  memory_minimum_bytes = 2147483648        # 2GB floor
+  memory_maximum_bytes = var.memory_max_mb * 1024 * 1024
+  memory_buffer        = 20
+
+  # Secure boot for Gen 2 Win11
+  secure_boot         = true
+  secure_boot_template = "MicrosoftWindows"
+
+  # Use the external switch so the VM gets a real LAN IP
   network_adaptors {
-    name        = "wan"
-    switch_name = "Internal-NAT-Switch"
+    name        = "LAN"
+    switch_name = "Broadcom NetXtreme Gigabit Ethernet #2 - Virtual Switch"
   }
 
+  # Point at the VHDX we copied to F:
   hard_disk_drives {
-    path = "C:\\Hyper-V\\Virtual Hard Disks\\productivity-vm.vhdx"
+    controller_type     = "Scsi"
+    controller_number   = 0
+    controller_location = 0
+    path                = hyperv_vhd.vm_disk.path
   }
+
+  # Boot from disk
+  dvd_drives {}
+
+  depends_on = [hyperv_vhd.vm_disk]
 }
