@@ -36,6 +36,14 @@
         src: /opt/vmstation-org/cluster-vm-thinclient/packer/win11.pkr.hcl
         dest: "{{ packer_dir }}\\win11.pkr.hcl"
 
+    - name: 2.5 Pre-set VM boot order (workaround)
+      ansible.windows.win_shell: |
+        $vm = Get-VM -Name "win11-template" -ErrorAction SilentlyContinue
+        if ($vm) {
+          $dvd = Get-VMDvdDrive -VMName "win11-template"
+          Set-VMFirmware -VMName "win11-template" -FirstBootDevice $dvd
+        }
+
     - name: 3. Execute Packer Build
       ansible.windows.win_shell: |
         C:\Packer\packer.exe init win11.pkr.hcl
