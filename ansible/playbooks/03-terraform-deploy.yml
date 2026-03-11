@@ -34,8 +34,8 @@
 
     - name: 4. Verify NFS Z drive is mounted
       ansible.windows.win_shell: |
-        if (-not (Test-Path "Z:\iso\win11e\win11-base.vhdx")) {
-          throw "Golden VHDX not found at Z:\iso\win11e\win11-base.vhdx - check NFS mount"
+        if (-not (Test-Path "Z:\win11e\win11-template\Virtual Hard Disks\win11-template.vhdx")) {
+          throw "Golden VHDX not found"
         }
 
     - name: 5. Copy VHDX to staging location for Terraform
