@@ -15,9 +15,9 @@ variable "vm_password" {
 source "hyperv-iso" "win11-enterprise" {
   iso_url               = "F:/Hyper-V/Virtual Machines/en-us_windows_11_business_editions_version_25h2_updated_feb_2026_x64_dvd_9271bf68.iso"
   iso_checksum          = "none"
-  generation            = 2
-  enable_secure_boot    = true
-  secure_boot_template  = "MicrosoftUEFICertificateAuthority"
+  generation            = 1
+  enable_secure_boot    = false
+  secure_boot_template  = false
   enable_tpm            = true
   vm_name               = "win11-template"
   output_directory      = "F:/Hyper-V/Templates/win11-template"
