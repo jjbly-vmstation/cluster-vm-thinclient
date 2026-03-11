@@ -24,15 +24,20 @@
         path: "{{ packer_dir }}"
         state: directory
 
-    - name: 2.2 Copy Packer templates from Linux to Windows
+    - name: 2.2 Template and Push Autounattend
+      ansible.windows.win_template:
+        src: /opt/vmstation-org/cluster-vm-thinclient/packer/autounattend.xml.j2
+        dest: "{{ packer_dir }}\\autounattend.xml"
+
+    - name: 2.3 Copy remaining Packer HCL files
       ansible.windows.win_copy:
-        src: /opt/vmstation-org/cluster-vm-thinclient/packer/  # The trailing slash is important!
-        dest: "{{ packer_dir }}\\"
+        src: /opt/vmstation-org/cluster-vm-thinclient/packer/win11.pkr.hcl
+        dest: "{{ packer_dir }}\\win11.pkr.hcl"
 
     - name: 3. Execute Packer Build
       ansible.windows.win_shell: |
         C:\Packer\packer.exe init win11.pkr.hcl
-        C:\Packer\packer.exe build -force -var "vm_password=TempBuildPassword123!" win11.pkr.hcl
+        C:\Packer\packer.exe build -force -var "{{ vm_password }}" win11.pkr.hcl
       args:
         chdir: "{{ packer_dir }}"
 
