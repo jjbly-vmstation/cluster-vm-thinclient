@@ -13,6 +13,8 @@
     local_output: "F:\\Hyper-V\\Templates\\win11-template"
     nfs_output: "Z:\\iso\\win11e"
     local_vhdx: "F:\\Hyper-V\\Templates\\win11-template\\win11-template\\Virtual Hard Disks\\win11-template.vhdx"
+    vm_password: "TempBuildPassword123!"
+
 
   tasks:
     - name: 1. Verify Authentication
