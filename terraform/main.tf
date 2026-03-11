@@ -20,7 +20,7 @@ provider "hyperv" {
 # Copy the golden VHDX from NFS to the F: RAID10 drive for this VM
 resource "hyperv_vhd" "vm_disk" {
   path   = "F:\\Hyper-V\\Virtual Hard Disks\\${var.vm_name}\\${var.vm_name}.vhdx"
-  source = "\\\\192.168.4.61\\srv\\media\\iso\\win11e\\win11-template\\Virtual Hard Disks\\win11-template.vhdx"
+  source = "Z:\\iso\\win11e\\win11-base.vhdx"
 }
 
 resource "hyperv_machine_instance" "vm" {
@@ -28,24 +28,25 @@ resource "hyperv_machine_instance" "vm" {
   generation      = 2
   processor_count = var.processors
 
+  state = "Running"
+
   # Dynamic memory
   static_memory        = false
   memory_startup_bytes = var.memory_startup_mb * 1024 * 1024
-  memory_minimum_bytes = 2147483648        # 2GB floor
+  memory_minimum_bytes = 2147483648
   memory_maximum_bytes = var.memory_max_mb * 1024 * 1024
-  memory_buffer        = 20
 
-  # Secure boot for Gen 2 Win11
-  secure_boot         = true
-  secure_boot_template = "MicrosoftWindows"
+  # Secure boot lives inside vm_firmware block
+  vm_firmware {
+    enable_secure_boot   = "On"
+    secure_boot_template = "MicrosoftWindows"
+  }
 
-  # Use the external switch so the VM gets a real LAN IP
   network_adaptors {
     name        = "LAN"
     switch_name = "Broadcom NetXtreme Gigabit Ethernet #2 - Virtual Switch"
   }
 
-  # Point at the VHDX we copied to F:
   hard_disk_drives {
     controller_type     = "Scsi"
     controller_number   = 0
@@ -53,8 +54,10 @@ resource "hyperv_machine_instance" "vm" {
     path                = hyperv_vhd.vm_disk.path
   }
 
-  # Boot from disk
-  dvd_drives {}
+  dvd_drives {
+    controller_number   = 0
+    controller_location = 1
+  }
 
   depends_on = [hyperv_vhd.vm_disk]
 }
