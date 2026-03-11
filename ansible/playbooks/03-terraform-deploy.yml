@@ -54,12 +54,14 @@
         path: "F:\\Hyper-V\\Golden"
         state: directory
 
-    - name: 5. Copy VHDX to staging location for Terraform
+    - name: 5. Copy golden VHDX for this VM
       ansible.windows.win_shell: |
-        robocopy "F:\Hyper-V\Templates\win11-template\Virtual Hard Disks" "F:\Hyper-V\Golden" "win11-template.vhdx" /J /NP
-        Rename-Item "F:\Hyper-V\Golden\win11-template.vhdx" "win11-base.vhdx" -ErrorAction SilentlyContinue
+        $dest = "F:\Hyper-V\Virtual Hard Disks\{{ vm_name }}"
+        New-Item -ItemType Directory -Force -Path $dest
+        robocopy "F:\Hyper-V\Golden" $dest "win11-base.vhdx" /J /NP
+        Rename-Item "$dest\win11-base.vhdx" "{{ vm_name }}.vhdx" -ErrorAction SilentlyContinue
       args:
-        creates: "F:\\Hyper-V\\Golden\\win11-base.vhdx"
+        creates: "F:\\Hyper-V\\Virtual Hard Disks\\{{ vm_name }}\\{{ vm_name }}.vhdx"
 
     - name: 5.6 Terraform Init
       ansible.windows.win_shell: |

@@ -25,20 +25,20 @@ resource "hyperv_vhd" "vm_disk" {
   source = "Z:\\iso\\win11e\\win11-base.vhdx"
 }
 
+# Remove the hyperv_vhd resource entirely - Ansible handles the copy
+# Just create the VM pointing at the pre-copied VHDX
+
 resource "hyperv_machine_instance" "vm" {
   name            = var.vm_name
   generation      = 2
   processor_count = var.processors
+  state           = "Running"
 
-  state = "Running"
-
-  # Dynamic memory
   static_memory        = false
   memory_startup_bytes = var.memory_startup_mb * 1024 * 1024
   memory_minimum_bytes = 2147483648
   memory_maximum_bytes = var.memory_max_mb * 1024 * 1024
 
-  # Secure boot lives inside vm_firmware block
   vm_firmware {
     enable_secure_boot   = "On"
     secure_boot_template = "MicrosoftWindows"
@@ -53,13 +53,11 @@ resource "hyperv_machine_instance" "vm" {
     controller_type     = "Scsi"
     controller_number   = 0
     controller_location = 0
-    path                = hyperv_vhd.vm_disk.path
+    path                = "F:\\Hyper-V\\Virtual Hard Disks\\${var.vm_name}\\${var.vm_name}.vhdx"
   }
 
   dvd_drives {
     controller_number   = 0
     controller_location = 1
   }
-
-  depends_on = [hyperv_vhd.vm_disk]
 }
