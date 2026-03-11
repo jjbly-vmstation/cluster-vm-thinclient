@@ -8,7 +8,7 @@ terraform {
 }
 
 provider "hyperv" {
-  user     = var.hyperv_user
+  user     = "ansible_svc"
   password = var.hyperv_password
   host     = "127.0.0.1"
   port     = 5985
