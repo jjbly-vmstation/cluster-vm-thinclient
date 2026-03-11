@@ -13,8 +13,7 @@
     local_output: "F:\\Hyper-V\\Templates\\win11-template"
     nfs_output: "Z:\\iso\\win11e"
     local_vhdx: "F:\\Hyper-V\\Templates\\win11-template\\win11-template\\Virtual Hard Disks\\win11-template.vhdx"
-    vars_files:
-    # Use absolute paths so it doesn't matter where you run the playbook from
+  vars_files:
     - /opt/vmstation-org/cluster-vm-thinclient/ansible/group_vars/all.yml
 
   tasks:
