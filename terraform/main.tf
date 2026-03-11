@@ -8,14 +8,15 @@ terraform {
 }
 
 provider "hyperv" {
-  user     = "ansible_svc"
-  password = var.hyperv_password
-  host     = "127.0.0.1"
-  port     = 5985
-  https    = false
-  insecure = true
-  use_ntlm = false
-  timeout  = "60s"
+  user        = "VMSTATION\\ansible_svc"
+  password    = var.hyperv_password
+  host        = "192.168.4.62"
+  port        = 5985
+  https       = false
+  insecure    = true
+  use_ntlm    = true
+  script_path = "C:/Temp/terraform_%RAND%.cmd"
+  timeout     = "60s"
 }
 
 # Copy the golden VHDX from NFS to the F: RAID10 drive for this VM
