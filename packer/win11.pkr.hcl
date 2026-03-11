@@ -14,7 +14,7 @@ variable "vm_password" {
 
 source "hyperv-iso" "win11-enterprise" {
   # Path to your ISO on the NFS share
-  iso_url               = "Z:/en-us_windows_11_business_editions_version_25h2_updated_feb_2026_x64_dvd_9271bf68.iso"
+  iso_url = "F:/Hyper-V/Virtual Machines/en-us_windows_11_business_editions_version_25h2_updated_feb_2026_x64_dvd_9271bf68.iso"
   iso_checksum          = "none"
   
   # Generation 2 is required for UEFI/Secure Boot in Win 11
