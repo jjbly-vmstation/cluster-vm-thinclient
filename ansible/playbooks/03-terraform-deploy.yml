@@ -80,7 +80,7 @@
         New-Item -ItemType Directory -Force -Path $vmPath
 
         New-VM -Name $vmName `
-              -Generation 2 `
+              -Generation 1 `
               -MemoryStartupBytes 4GB `
               -VHDPath $vhdxPath `
               -SwitchName $switch `
