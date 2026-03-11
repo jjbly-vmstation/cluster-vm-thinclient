@@ -43,11 +43,6 @@
       args:
         chdir: "{{ packer_dir }}"
       register: packer_result
-      become: true
-      become_method: runas
-      become_user: "VMSTATION\\Administrator"
-      vars:
-        ansible_become_password: "{{ admin_password }}"
 
     - name: 4. Ensure NFS destination exists (Z drive)
       ansible.windows.win_file:
