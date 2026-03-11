@@ -25,8 +25,9 @@ source "hyperv-iso" "win11-enterprise" {
   memory                = 12288
   disk_size             = 130048
   switch_name           = "Internal-NAT-Switch"
-  boot_wait             = "10s"
-  boot_command          = []
+  first_boot_device = "CD"
+  boot_wait         = "10s"
+  boot_command      = [""]
 
 
   cd_files = [
