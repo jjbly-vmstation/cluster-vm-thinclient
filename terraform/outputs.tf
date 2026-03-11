@@ -5,5 +5,5 @@ output "vm_name" {
 
 output "vm_disk_path" {
   description = "Path to the VM's VHDX on the F: RAID10 drive"
-  value       = hyperv_vhd.vm_disk.path
+  value       = "F:\\Hyper-V\\Virtual Hard Disks\\${var.vm_name}\\${var.vm_name}.vhdx"
 }
