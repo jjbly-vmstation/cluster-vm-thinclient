@@ -20,7 +20,7 @@ provider "hyperv" {
 # Copy the golden VHDX from NFS to the F: RAID10 drive for this VM
 resource "hyperv_vhd" "vm_disk" {
   path   = "F:\\Hyper-V\\Virtual Hard Disks\\${var.vm_name}\\${var.vm_name}.vhdx"
-  source = "Z:\\win11e\\win11-template\\Virtual Hard Disks\\win11-template.vhdx"
+  source = "\\\\192.168.4.61\\srv\\media\\iso\\win11e\\win11-template\\Virtual Hard Disks\\win11-template.vhdx"
 }
 
 resource "hyperv_machine_instance" "vm" {

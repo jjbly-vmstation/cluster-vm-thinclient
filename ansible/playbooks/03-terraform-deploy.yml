@@ -8,6 +8,7 @@
     ansible_user: 'VMSTATION\ansible_svc'
     ansible_ssh_common_args: '-o ProxyCommand=none'
     terraform_dir: "C:\\vmstation-org\\cluster-vm-thinclient\\terraform"
+    nfs_output: "\\\\192.168.4.61\\srv\\media\\iso\\win11e"
   vars_files:
     - /opt/vmstation-org/cluster-vm-thinclient/ansible/group_vars/all.yml
 
@@ -34,7 +35,7 @@
 
     - name: 4. Verify NFS Z drive is mounted
       ansible.windows.win_shell: |
-        if (-not (Test-Path "Z:\win11e\win11-template\Virtual Hard Disks\win11-template.vhdx")) {
+        if (-not (Test-Path "\\192.168.4.61\srv\media\iso\win11e\win11-template\Virtual Hard Disks\win11-template.vhdx")) {
           throw "Golden VHDX not found"
         }
 
