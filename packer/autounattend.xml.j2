@@ -98,6 +98,37 @@
             <ComputerName>win11-template</ComputerName>
             <TimeZone>Eastern Standard Time</TimeZone>
         </component>
+        <component name="Microsoft-Windows-TCPIP" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
+            <Interfaces>
+                <Interface wcm:action="add">
+                    <Identifier>Local Area Connection</Identifier>
+                    <Ipv4Settings>
+                        <DhcpEnabled>false</DhcpEnabled>
+                    </Ipv4Settings>
+                    <UnicastIpAddresses>
+                        <IpAddress wcm:action="add" wcm:keyValue="1">192.168.5.2/22</IpAddress>
+                    </UnicastIpAddresses>
+                    <Routes>
+                        <Route wcm:action="add">
+                            <Identifier>*</Identifier>
+                            <Prefix>0.0.0.0/0</Prefix>
+                            <NextHopAddress>192.168.4.1</NextHopAddress>
+                        </Route>
+                    </Routes>
+                </Interface>
+            </Interfaces>
+        </component>
+        <component name="Microsoft-Windows-DNS-Client" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
+            <Interfaces>
+                <Interface wcm:action="add">
+                    <Identifier>Local Area Connection</Identifier>
+                    <DNSServerSearchOrder>
+                        <IpAddress wcm:action="add" wcm:keyValue="1">192.168.4.62</IpAddress>
+                        <IpAddress wcm:action="add" wcm:keyValue="2">192.168.4.1</IpAddress>
+                    </DNSServerSearchOrder>
+                </Interface>
+            </Interfaces>
+        </component>
         <component name="Microsoft-Windows-Deployment" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
             <RunSynchronous>
                 <RunSynchronousCommand wcm:action="add">
