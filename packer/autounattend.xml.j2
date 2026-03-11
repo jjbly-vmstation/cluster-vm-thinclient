@@ -98,37 +98,6 @@
             <ComputerName>win11-template</ComputerName>
             <TimeZone>Eastern Standard Time</TimeZone>
         </component>
-        <component name="Microsoft-Windows-TCPIP" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
-            <Interfaces>
-                <Interface wcm:action="add">
-                    <Identifier>Local Area Connection</Identifier>
-                    <Ipv4Settings>
-                        <DhcpEnabled>false</DhcpEnabled>
-                    </Ipv4Settings>
-                    <UnicastIpAddresses>
-                        <IpAddress wcm:action="add" wcm:keyValue="1">192.168.5.2/22</IpAddress>
-                    </UnicastIpAddresses>
-                    <Routes>
-                        <Route wcm:action="add">
-                            <Identifier>*</Identifier>
-                            <Prefix>0.0.0.0/0</Prefix>
-                            <NextHopAddress>192.168.4.1</NextHopAddress>
-                        </Route>
-                    </Routes>
-                </Interface>
-            </Interfaces>
-        </component>
-        <component name="Microsoft-Windows-DNS-Client" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
-            <Interfaces>
-                <Interface wcm:action="add">
-                    <Identifier>Local Area Connection</Identifier>
-                    <DNSServerSearchOrder>
-                        <IpAddress wcm:action="add" wcm:keyValue="1">192.168.4.62</IpAddress>
-                        <IpAddress wcm:action="add" wcm:keyValue="2">192.168.4.1</IpAddress>
-                    </DNSServerSearchOrder>
-                </Interface>
-            </Interfaces>
-        </component>
         <component name="Microsoft-Windows-Deployment" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
             <RunSynchronous>
                 <RunSynchronousCommand wcm:action="add">
@@ -194,25 +163,27 @@
                 <SkipUserOOBE>true</SkipUserOOBE>
             </OOBE>
             <FirstLogonCommands>
-                <!-- Step 1: Set network to Private so PSRemoting is allowed -->
+                <!-- Step 1: Set static IP, gateway and DNS - bypasses rogue DHCP server -->
                 <SynchronousCommand wcm:action="add">
                     <Order>1</Order>
+                    <CommandLine>powershell -ExecutionPolicy Bypass -Command "Get-NetAdapter | Where-Object {$_.Status -eq 'Up'} | New-NetIPAddress -IPAddress 192.168.5.2 -PrefixLength 22 -DefaultGateway 192.168.4.1; Get-NetAdapter | Where-Object {$_.Status -eq 'Up'} | Set-DnsClientServerAddress -ServerAddresses ('192.168.4.62','192.168.4.1')"</CommandLine>
+                    <Description>Set static IP</Description>
+                </SynchronousCommand>
+                <!-- Step 2: Set network to Private so PSRemoting is allowed -->
+                <SynchronousCommand wcm:action="add">
+                    <Order>2</Order>
                     <CommandLine>powershell -ExecutionPolicy Bypass -Command "Get-NetConnectionProfile | Set-NetConnectionProfile -NetworkCategory Private"</CommandLine>
                     <Description>Set all network profiles to Private</Description>
                 </SynchronousCommand>
-                <!-- Step 2: Single authoritative WinRM setup script.
-                     Uses winrm quickconfig (not Enable-PSRemoting) to avoid the
-                     "listener already exists" failure that causes auth settings to
-                     be skipped. All config is applied atomically before the final
-                     service restart, so Packer always sees Basic + Unencrypted. -->
+                <!-- Step 3: WinRM setup -->
                 <SynchronousCommand wcm:action="add">
-                    <Order>2</Order>
+                    <Order>3</Order>
                     <CommandLine>powershell -ExecutionPolicy Bypass -Command "winrm quickconfig -q; Set-Item WSMan:\localhost\Service\Auth\Basic $true -Force; Set-Item WSMan:\localhost\Service\AllowUnencrypted $true -Force; Set-Item WSMan:\localhost\Client\Auth\Basic $true -Force; Set-Item WSMan:\localhost\Client\AllowUnencrypted $true -Force; Restart-Service WinRM -Force; netsh advfirewall firewall set rule group='Windows Remote Management' new enable=yes"</CommandLine>
                     <Description>Configure WinRM with Basic auth and unencrypted HTTP for Packer</Description>
                 </SynchronousCommand>
-                <!-- Step 3: Verify and log WinRM state to C:\winrm-setup.log for debugging -->
+                <!-- Step 4: Log WinRM state for debugging -->
                 <SynchronousCommand wcm:action="add">
-                    <Order>3</Order>
+                    <Order>4</Order>
                     <CommandLine>powershell -ExecutionPolicy Bypass -Command "winrm enumerate winrm/config/Listener | Out-File C:\winrm-setup.log; winrm get winrm/config/service | Out-File -Append C:\winrm-setup.log; winrm get winrm/config/service/auth | Out-File -Append C:\winrm-setup.log"</CommandLine>
                     <Description>Log WinRM config for post-mortem debugging</Description>
                 </SynchronousCommand>
