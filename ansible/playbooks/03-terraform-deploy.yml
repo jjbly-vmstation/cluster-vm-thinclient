@@ -64,30 +64,39 @@
       args:
         creates: "F:\\Hyper-V\\Virtual Hard Disks\\{{ vm_name }}\\{{ vm_name }}.vhdx"
 
-    - name: 5.6 Terraform Init
+    - name: 6. Create Hyper-V VM
       ansible.windows.win_shell: |
-        C:\Terraform\terraform.exe init -upgrade
-      args:
-        chdir: "C:\\home\\vmadmin\\vmstation-org\\cluster-vm-thinclient\\terraform"
-      register: tf_init
+        $vmName = "{{ vm_name }}"
+        $vhdxPath = "F:\Hyper-V\Virtual Hard Disks\$vmName\$vmName.vhdx"
+        $switch = "Broadcom NetXtreme Gigabit Ethernet #2 - Virtual Switch"
 
-    - name: 6. Terraform Plan
+        # Create VM
+        New-VM -Name $vmName `
+              -Generation 2 `
+              -MemoryStartupBytes 4GB `
+              -VHDPath $vhdxPath `
+              -SwitchName $switch
+
+        # Configure CPU and dynamic memory
+        Set-VM -Name $vmName `
+              -ProcessorCount 4 `
+              -DynamicMemory `
+              -MemoryMinimumBytes 2GB `
+              -MemoryMaximumBytes 16GB
+
+        # Secure boot
+        Set-VMFirmware -VMName $vmName `
+                      -EnableSecureBoot On `
+                      -SecureBootTemplate MicrosoftWindows
+
+        # Start it
+        Start-VM -Name $vmName
+
+        Write-Host "VM $vmName created and started successfully"
+
+    - name: 7. Verify VM is running
       ansible.windows.win_shell: |
-        C:\Terraform\terraform.exe plan `
-          -var="hyperv_password={{ vm_password }}" `
-          -var="vm_name={{ vm_name | default('win11-production') }}" `
-          -out=tfplan
-      args:
-        chdir: "C:\\home\\vmadmin\\vmstation-org\\cluster-vm-thinclient\\terraform"
-      register: tf_plan
-
-    - name: 7. Terraform Apply
-      ansible.windows.win_shell: |
-        C:\Terraform\terraform.exe apply -auto-approve tfplan
-      args:
-        chdir: "C:\\home\\vmadmin\\vmstation-org\\cluster-vm-thinclient\\terraform"
-      register: tf_apply
-
-    - name: 8. Show Apply Output
-      ansible.builtin.debug:
-        msg: "{{ tf_apply.stdout_lines }}"
+        $vm = Get-VM -Name "{{ vm_name }}"
+        if ($vm.State -ne "Running") { throw "VM is not running, state is: $($vm.State)" }
+        Write-Host "VM state: $($vm.State)"
+        Get-VMNetworkAdapter -VMName "{{ vm_name }}" | Select-Object IPAddresses
