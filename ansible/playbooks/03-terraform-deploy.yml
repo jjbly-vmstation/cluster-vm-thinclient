@@ -61,6 +61,13 @@
       args:
         creates: "F:\\Hyper-V\\Golden\\win11-base.vhdx"
 
+    - name: 5.6 Terraform Init
+      ansible.windows.win_shell: |
+        C:\Terraform\terraform.exe init -upgrade
+      args:
+        chdir: "C:\\home\\vmadmin\\vmstation-org\\cluster-vm-thinclient\\terraform"
+      register: tf_init
+
     - name: 6. Terraform Plan
       ansible.windows.win_shell: |
         C:\Terraform\terraform.exe plan `
@@ -68,20 +75,16 @@
           -var="vm_name={{ vm_name | default('win11-production') }}" `
           -out=tfplan
       args:
-        chdir: "{{ terraform_dir }}"
+        chdir: "C:\\home\\vmadmin\\vmstation-org\\cluster-vm-thinclient\\terraform"
       register: tf_plan
 
-    - name: 7. Show Plan Output
-      ansible.builtin.debug:
-        msg: "{{ tf_plan.stdout_lines }}"
-
-    - name: 8. Terraform Apply
+    - name: 7. Terraform Apply
       ansible.windows.win_shell: |
         C:\Terraform\terraform.exe apply -auto-approve tfplan
       args:
-        chdir: "{{ terraform_dir }}"
+        chdir: "C:\\home\\vmadmin\\vmstation-org\\cluster-vm-thinclient\\terraform"
       register: tf_apply
 
-    - name: 9. Show Apply Output
+    - name: 8. Show Apply Output
       ansible.builtin.debug:
         msg: "{{ tf_apply.stdout_lines }}"
