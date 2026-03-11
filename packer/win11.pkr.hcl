@@ -33,7 +33,6 @@ source "hyperv-iso" "win11-enterprise" {
   cd_files = [
     "./autounattend.xml",
     "./install_office.ps1",
-    "./office_config.xml",
     "./masgrave.ps1"
   ]
   

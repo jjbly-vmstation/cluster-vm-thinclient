@@ -1,32 +1,53 @@
+# install_office.ps1 - Downloads Office ODT and installs Microsoft 365 Apps
 $ErrorActionPreference = "Stop"
+$WorkDir = "C:\Windows\Temp\OfficeInstall"
 
-# HARDCODED PATHS TO DRIVE E:
-$driveRoot = "E:\"
-$setupPath = "E:\setup.exe"
-$configPath = "E:\configuration-Office365-x64.xml"
+Write-Host "Creating working directory..."
+New-Item -ItemType Directory -Force -Path $WorkDir | Out-Null
 
-Write-Output "FORCING Office installation from drive E:..."
+# Download ODT
+Write-Host "Downloading Office Deployment Tool..."
+$ODTUrl = "https://download.microsoft.com/download/6c1eeb25-cf8b-41d9-8d0d-cc1dbc032140/officedeploymenttool_19628-20192.exe"
+$ODTExe = "$WorkDir\odt.exe"
+Invoke-WebRequest -Uri $ODTUrl -OutFile $ODTExe -UseBasicParsing
 
-# Pre-execution check
-if (-not (Test-Path $setupPath)) {
-    throw "FATAL: setup.exe not found on E:. Verify drive mapping in VMware console."
+# Extract ODT
+Write-Host "Extracting ODT..."
+Start-Process -FilePath $ODTExe -ArgumentList "/quiet /extract:$WorkDir" -Wait
+
+# Write Office config XML - Microsoft 365 Apps for Enterprise, no Teams, no OneDrive
+Write-Host "Writing Office config..."
+$ConfigXML = @"
+<Configuration ID="homelab-m365">
+  <Add OfficeClientEdition="64" Channel="MonthlyEnterprise">
+    <Product ID="O365ProPlusRetail">
+      <Language ID="en-us" />
+      <ExcludeApp ID="Teams" />
+      <ExcludeApp ID="OneDrive" />
+      <ExcludeApp ID="Groove" />
+      <ExcludeApp ID="Lync" />
+    </Product>
+  </Add>
+  <Updates Enabled="FALSE" />
+  <Display Level="None" AcceptEULA="TRUE" />
+  <Logging Level="Standard" Path="C:\Windows\Temp\OfficeInstall" />
+  <Property Name="FORCEAPPSHUTDOWN" Value="TRUE" />
+  <Property Name="SharedComputerLicensing" Value="0" />
+</Configuration>
+"@
+$ConfigXML | Out-File "$WorkDir\office_config.xml" -Encoding UTF8
+
+# Run Office install
+Write-Host "Installing Office (this will take a while)..."
+$SetupExe = "$WorkDir\setup.exe"
+$Result = Start-Process -FilePath $SetupExe -ArgumentList "/configure $WorkDir\office_config.xml" -Wait -PassThru
+
+if ($Result.ExitCode -ne 0) {
+    throw "Office installation failed with exit code: $($Result.ExitCode). Check C:\Windows\Temp\OfficeInstall for logs."
 }
 
-# Change location so setup.exe sees the 'Office' data folder locally
-Set-Location -Path $driveRoot
+Write-Host "Office installation completed successfully."
 
-Write-Output "Executing: $setupPath /configure $configPath"
-
-# Start the installation
-$process = Start-Process -FilePath $setupPath -ArgumentList "/configure `"$configPath`"" -Wait -NoNewWindow -PassThru
-
-if ($process.ExitCode -ne 0) {
-    Write-Output "Office installation failed with Exit Code $($process.ExitCode)"
-    # Dump the Microsoft setup log if it exists
-    if (Test-Path "C:\Windows\Temp\*-*.log") {
-        Get-Content "C:\Windows\Temp\*-*.log" -Tail 20 | Write-Output
-    }
-    throw "Installation failed with code $($process.ExitCode)"
-}
-
-Write-Output "Office and Visio installation successfully completed on E:."
+# Cleanup
+Write-Host "Cleaning up..."
+Remove-Item -Path $WorkDir -Recurse -Force -ErrorAction SilentlyContinue
