@@ -39,6 +39,11 @@
           throw "Golden VHDX not found"
         }
 
+    - name: 4.9 Ensure Golden staging directory exists
+      ansible.windows.win_file:
+        path: "F:\\Hyper-V\\Golden"
+        state: directory
+
     - name: 5. Copy VHDX to staging location for Terraform
       ansible.windows.win_copy:
         src: "F:\\Hyper-V\\Templates\\win11-template\\Virtual Hard Disks\\win11-template.vhdx"
