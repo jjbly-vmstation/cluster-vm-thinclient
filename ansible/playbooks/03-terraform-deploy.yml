@@ -28,6 +28,16 @@
         - /opt/vmstation-org/cluster-vm-thinclient/terraform/outputs.tf
         - /opt/vmstation-org/cluster-vm-thinclient/terraform/terraform.tfvars
 
+    - name: 2.5 Ensure Terraform is installed
+      ansible.windows.win_shell: |
+        if (-not (Test-Path "C:\Terraform\terraform.exe")) {
+          Invoke-WebRequest -Uri "https://releases.hashicorp.com/terraform/1.10.5/terraform_1.10.5_windows_amd64.zip" -OutFile "C:\Windows\Temp\terraform.zip" -UseBasicParsing
+          New-Item -ItemType Directory -Force -Path "C:\Terraform"
+          Expand-Archive "C:\Windows\Temp\terraform.zip" -DestinationPath "C:\Terraform" -Force
+        }
+      args:
+        creates: "C:\\Terraform\\terraform.exe"
+
     - name: 3. Ensure VM VHDX directory exists on F RAID10
       ansible.windows.win_file:
         path: "F:\\Hyper-V\\Virtual Hard Disks\\{{ vm_name | default('win11-production') }}"
